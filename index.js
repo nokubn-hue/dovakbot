@@ -220,12 +220,6 @@ async function startRace(channel, bettors) {
   });
 }
 
-// -------------------
-// interactionCreate (명령 처리)
-// -------------------
-client.on("interactionCreate", async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
-  const cmd = interaction.commandName;
 
 // ------------------- 🃏 바카라 -------------------
 client.on("interactionCreate", async (interaction) => {
@@ -655,6 +649,7 @@ client.on("ready", async () => {
 // 로그인
 // -------------------
 client.login(TOKEN);
+
 
 
 
