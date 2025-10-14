@@ -159,7 +159,7 @@ function scheduleLottery(channelId){
 }
 
 // -------------------
-// 경마 (말 이름 포함)
+// 경마 (실시간 이동, 말 이름 포함)
 // -------------------
 const horses = [
   { name: "썬더", emoji: "🐎" },
@@ -171,27 +171,45 @@ const horses = [
   { name: "썬샤인", emoji: "🐎" },
 ];
 
+const activeRaces = new Map(); // channelId -> { bettors: Map<userId, {horseIndex, bet}> }
+
 async function startRace(channel, bettors) {
-  let positions = new Array(horses.length).fill(0);
-  const msg = await channel.send("🏁 경주 시작! 잠시만 기다려주세요...");
+  let positions = new Array(horses.length).fill(0); // 초기 위치
+  const trackLength = 30; // 결승선까지 거리
+  const msg = await channel.send("🏁 경주 시작! 말을 달려보세요!");
 
   return new Promise((resolve) => {
     let finished = false;
+
     const interval = setInterval(async () => {
+      // 각 말 이동
       for (let i = 0; i < horses.length; i++) {
-        positions[i] += Math.random() < 0.6 ? 0 : Math.floor(Math.random() * 3);
-        if (positions[i] >= 30) positions[i] = 30;
+        // 랜덤으로 1~3 칸 이동
+        positions[i] += Math.floor(Math.random() * 3) + 1;
+        if (positions[i] > trackLength) positions[i] = trackLength;
       }
 
-      const raceMsg = positions.map((p, i) => `${horses[i].emoji} ${horses[i].name} |${"·".repeat(p)}🏁`).join("\n");
-      await msg.edit(raceMsg);
+      // 경주 현황 메시지 생성
+      const raceDisplay = positions
+        .map((pos, i) => {
+          const progress = "·".repeat(pos) + "🏁";
+          return `${horses[i].emoji} ${horses[i].name} |${progress}`;
+        })
+        .join("\n");
 
-      const winners = positions.map((p, i) => (p >= 30 ? i : null)).filter(x => x !== null);
+      await msg.edit(raceDisplay);
+
+      // 결승선 통과 체크
+      const winners = positions
+        .map((pos, i) => (pos >= trackLength ? i : null))
+        .filter((x) => x !== null);
+
       if (winners.length > 0) {
         finished = true;
         clearInterval(interval);
         const winnerIdx = winners[0];
 
+        // 정산
         for (const [uid, b] of bettors.entries()) {
           if (b.horseIndex === winnerIdx) {
             await changeBalance(uid, b.bet * 5, "race_win");
@@ -202,6 +220,7 @@ async function startRace(channel, bettors) {
         resolve(winnerIdx);
       }
     }, 1000);
+
 
     setTimeout(() => {
       if (!finished) {
@@ -289,3 +308,4 @@ client.on("ready", async ()=>{
 });
 
 client.login(TOKEN);
+
