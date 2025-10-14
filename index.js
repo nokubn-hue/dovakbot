@@ -13,6 +13,110 @@ const CLIENT_ID = process.env.CLIENT_ID || null;
 const GUILD_ID = process.env.GUILD_ID || null;
 const ADMIN_USER_IDS = (process.env.ADMIN_USER_IDS || "").split(",").filter(Boolean);
 
+// 환경 변수 읽기
+const TOKEN = process.env.DISCORD_TOKEN;
+const CLIENT_ID = process.env.CLIENT_ID || null;
+const GUILD_ID = process.env.GUILD_ID || null;
+const ADMIN_USER_IDS = (process.env.ADMIN_USER_IDS || "").split(",").filter(Boolean);
+
+// DB 초기화
+let db;
+async function initDB() {
+  db = await open({ filename: './dovakbot.db', driver: sqlite3.Database });
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      balance INTEGER DEFAULT 0,
+      last_claim INTEGER DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT,
+      delta INTEGER,
+      reason TEXT,
+      ts INTEGER
+    );
+  `);
+  console.log("DB 연결 성공");
+}
+
+// 관리자 체크 유틸
+function isAdmin(userId){
+  if(ADMIN_USER_IDS.length === 0) return false;
+  return ADMIN_USER_IDS.includes(userId);
+}
+
+// 유저 정보 조회
+async function getUser(userId){
+  let row = await db.get("SELECT * FROM users WHERE id = ?", userId);
+  if(!row){
+    await db.run("INSERT INTO users(id,balance,last_claim) VALUES(?,?,?)", userId, 0, 0);
+    row = await db.get("SELECT * FROM users WHERE id=?", userId);
+  }
+  return row;
+}
+
+// 잔고 변경
+async function changeBalance(userId, delta, reason="adjust"){
+  await getUser(userId);
+  await db.run("UPDATE users SET balance = balance + ? WHERE id = ?", delta, userId);
+  await db.run("INSERT INTO transactions(user_id, delta, reason, ts) VALUES(?,?,?,?)", userId, delta, reason, Date.now());
+  return await getUser(userId);
+}
+
+// Discord Client
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+  partials: [Partials.Channel]
+});
+
+// 슬래시 명령어 등록 (관리자용 포함)
+const commands = [
+  new SlashCommandBuilder()
+    .setName("관리자지급")
+    .setDescription("관리자 전용: 포인트를 지급/회수")
+    .addUserOption(o=>o.setName("대상").setDescription("대상 유저").setRequired(true))
+    .addIntegerOption(o=>o.setName("금액").setDescription("양수는 지급, 음수는 회수").setRequired(true)),
+].map(cmd => cmd.toJSON());
+
+async function registerCommands(){
+  const { REST, Routes } = await import('discord.js');
+  const rest = new REST({ version: '10' }).setToken(TOKEN);
+  try{
+    if(GUILD_ID){
+      await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
+      console.log("슬래시 명령어 등록 완료 (guild)");
+    } else {
+      await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+      console.log("슬래시 명령어 등록 완료 (global)");
+    }
+  } catch(e){ console.error("명령어 등록 실패", e); }
+}
+
+// 이벤트
+client.on("ready", async () => {
+  console.log(`Logged in as ${client.user.tag}`);
+  await initDB();
+  await registerCommands();
+});
+
+client.on("interactionCreate", async (interaction) => {
+  if(!interaction.isChatInputCommand()) return;
+  const uid = interaction.user.id;
+  const cmd = interaction.commandName;
+
+  if(cmd === "관리자지급"){
+    if(!isAdmin(uid)) return interaction.reply({ content: "관리자 전용 명령입니다.", ephemeral: true });
+    const target = interaction.options.getUser("대상");
+    const amount = interaction.options.getInteger("금액");
+    if(!target) return interaction.reply({ content: "대상을 지정하세요.", ephemeral: true });
+    await changeBalance(target.id, amount, "admin_adjust");
+    return interaction.reply({ content: `<@${target.id}> 에게 ${amount}포인트 적용 완료.`, ephemeral: false });
+  }
+});
+
+client.login(TOKEN);
+
 // -------------------
 // 기본 설정
 // -------------------
@@ -541,4 +645,5 @@ async function runRace(channelId){
 
 // 로그인
 client.login(TOKEN);
+
 
