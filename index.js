@@ -185,11 +185,11 @@ async function startRace(channel, bettors) {
       }
 
       // ✅ 말과 깃발 위치만 이동시킨 버전
-      const raceDisplay = positions
-    .map((pos, i) => `${horses[i].emoji} ${horses[i].name} |${"·".repeat(pos)}🏁`)
-    .join("\n");
+      const raceMsg = positions
+  .map((pos, i) => `${horses[i].emoji} ${horses[i].name} |${"·".repeat(pos)}🏁`)
+  .join("\n");
 
-      await msg.edit(🏇 경주 중...\n\n${raceMsg});
+await msg.edit(`🏇 경주 중...\n\n${raceMsg}`);
 
       const winners = positions.map((p, i) => (p >= trackLength ? i : null)).filter((x) => x !== null);
       if (winners.length > 0) {
@@ -366,5 +366,6 @@ client.on("ready", async () => {
 // 로그인
 // -------------------
 client.login(TOKEN);
+
 
 
