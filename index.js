@@ -1,6 +1,7 @@
 // index.js
 import fs from "fs";
 import sqlite3 from "sqlite3";
+const sqlite = sqlite3.verbose();
 import { open } from "sqlite";
 import cron from "node-cron";
 import { Client, GatewayIntentBits, Partials, Collection, ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder, REST, Routes, EmbedBuilder } from "discord.js";
@@ -498,3 +499,4 @@ async function runRace(channelId){
 
 // 로그인
 client.login(TOKEN);
+
