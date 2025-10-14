@@ -116,14 +116,6 @@ const DEFAULT_STARTING = 1000;
 const SLOT_DEFAULT_BET = 100;
 const TABLE_MIN_BET = 100;
 
-// -------------------
-// DB 초기화
-// -------------------
-const db = new sqlite3.Database("./dovakbot.db", sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
-  if (err) console.error("DB 연결 실패:", err);
-  else console.log("DB 연결 성공");
-});
-
 // promisify
 const dbRun = promisify(db.run.bind(db));
 const dbGet = promisify(db.get.bind(db));
@@ -637,6 +629,7 @@ async function runRace(channelId){
 
 // 로그인
 client.login(TOKEN);
+
 
 
 
