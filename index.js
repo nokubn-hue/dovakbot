@@ -228,26 +228,27 @@ client.on("interactionCreate", async (interaction) => {
   const cmd = interaction.commandName;
 
 // ------------------- 🃏 바카라 -------------------
-if (cmd === "바카라") {
-  try {
-    await interaction.deferReply();
-    const uid = interaction.user.id;
-    const side = interaction.options.getString("배팅방향") || "플레이어"; // 기본값
-    const bet = Number(interaction.options.getInteger("배팅") ?? 100);
+client.on("interactionCreate", async (interaction) => {
+  if (!interaction.isCommand()) return;
+  const cmd = interaction.commandName;
 
-    const user = await getUser(uid);
-    if (!["플레이어", "뱅커", "무승부"].includes(side)) {
-      await interaction.editReply("배팅방향은 플레이어 / 뱅커 / 무승부 중 하나여야 합니다.");
-      return;
-    }
-    if (bet <= 0) {
-      await interaction.editReply("배팅 금액은 1 이상이어야 합니다.");
-      return;
-    }
-    if (user.balance < bet) {
-      await interaction.editReply("잔고가 부족합니다.");
-      return;
-    }
+  if (cmd === "바카라") {
+    try {
+      await interaction.deferReply();
+      const uid = interaction.user.id;
+      const side = interaction.options.getString("배팅방향") || "플레이어";
+      const bet = Number(interaction.options.getInteger("배팅") ?? 100);
+
+      const user = await getUser(uid);
+      if (!["플레이어", "뱅커", "무승부"].includes(side)) {
+        return interaction.editReply("배팅방향은 플레이어 / 뱅커 / 무승부 중 하나여야 합니다.");
+      }
+      if (bet <= 0) {
+        return interaction.editReply("배팅 금액은 1 이상이어야 합니다.");
+      }
+      if (user.balance < bet) {
+        return interaction.editReply("잔고가 부족합니다.");
+      }
 
     // 배팅 금액 차감
     await changeBalance(uid, -bet, "baccarat_bet");
@@ -305,8 +306,6 @@ if (cmd === "바카라") {
       console.error("응답 처리 중 추가 오류:", e);
     }
   }
-}
-
 });
 
 
@@ -656,6 +655,7 @@ client.on("ready", async () => {
 // 로그인
 // -------------------
 client.login(TOKEN);
+
 
 
 
