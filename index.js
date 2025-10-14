@@ -2,13 +2,22 @@
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
 import cron from "node-cron";
-import { Client, GatewayIntentBits, Partials, SlashCommandBuilder, REST, Routes } from "discord.js";
-import process from "process";
 import express from "express";
+import process from "process";
+import {
+  Client,
+  GatewayIntentBits,
+  Partials,
+  SlashCommandBuilder,
+  REST,
+  Routes
+} from "discord.js";
 
+// -------------------
+// Express 서버
+// -------------------
 const app = express();
 const PORT = process.env.PORT || 3000;
-
 app.get("/", (req, res) => res.send("봇이 실행 중입니다."));
 app.listen(PORT, () => console.log(`Web server listening on port ${PORT}`));
 
@@ -73,9 +82,9 @@ async function getUser(userId) {
   return row;
 }
 
-async function changeBalance(userId, delta, reason = "adjust") {
+async function changeBalance(userId, delta, reason="adjust") {
   const user = await getUser(userId);
-  const newBalance = (user.balance || 0) + delta;
+  const newBalance = user.balance + delta;
   await db.run("UPDATE users SET balance=? WHERE id=?", newBalance, userId);
   await db.run("INSERT INTO transactions(user_id, delta, reason, ts) VALUES(?,?,?,?)", userId, delta, reason, Date.now());
   return await getUser(userId);
@@ -109,9 +118,9 @@ function spinSlot() {
 // -------------------
 // 블랙잭 헬퍼
 // -------------------
-function createDeck(){
+function createDeck() {
   const faces = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
-  const deck=[];
+  const deck = [];
   for(let i=0;i<4;i++) for(const f of faces) deck.push(f);
   for(let i=deck.length-1;i>0;i--){
     const j=Math.floor(Math.random()*(i+1));
@@ -153,17 +162,16 @@ function scheduleLottery(channelId){
 }
 
 // -------------------
-// 게임 상태 저장
+// 블랙잭/바카라/경마 상태 저장
 // -------------------
 const activeBlackjacks = new Map();
 const activeBaccarat = new Map();
 const activeRaces = new Map();
-
-// -------------------
-// 경마 헬퍼
-// -------------------
 const horses = ["🐎","🐎","🐎","🐎","🐎","🐎","🐎"];
 
+// -------------------
+// 경마 게임
+// -------------------
 async function startRace(channel, bettors) {
   let positions = new Array(horses.length).fill(0);
   const msg = await channel.send("🏁 경주 시작! 잠시만 기다려주세요...");
@@ -179,7 +187,7 @@ async function startRace(channel, bettors) {
       const raceMsg = positions.map((p, i) => `${horses[i]} |${"·".repeat(p)}🏁`).join("\n");
       await msg.edit(raceMsg);
 
-      const winners = positions.map((p,i)=>p>=30?i:null).filter(x=>x!==null);
+      const winners = positions.map((p, i) => (p >= 30 ? i : null)).filter((x) => x !== null);
       if (winners.length > 0) {
         finished = true;
         clearInterval(interval);
@@ -191,7 +199,7 @@ async function startRace(channel, bettors) {
           }
         }
 
-        await channel.send(`🏆 경주 종료! 우승 말: ${horses[winnerIdx]} (번호 ${winnerIdx+1})`);
+        await channel.send(`🏆 경주 종료! 우승 말: ${horses[winnerIdx]} (번호 ${winnerIdx + 1})`);
         resolve(winnerIdx);
       }
     }, 1000);
@@ -207,51 +215,35 @@ async function startRace(channel, bettors) {
 }
 
 // -------------------
-// interactionCreate 이벤트
-// -------------------
-client.on("interactionCreate", async interaction=>{
-  if(!interaction.isChatInputCommand()) return;
-  const uid = interaction.user.id;
-  const cmd = interaction.commandName;
-
-  // ... (이전 슬롯, 블랙잭, 바카라, 복권, 관리자 코드 그대로 사용)
-
-  // 경마
-  if(cmd==="경마"){
-    await interaction.deferReply();
-    const channelId = interaction.channelId;
-    const bet = interaction.options.getInteger("배팅") ?? 100;
-    const horseIndex = (interaction.options.getInteger("번호") ?? 1)-1;
-    const user = await getUser(uid);
-    if(user.balance<bet) return interaction.editReply("잔고가 부족합니다.");
-
-    if(!activeRaces.has(channelId)){
-      activeRaces.set(channelId,{bettors:new Map()});
-      setTimeout(async ()=>{
-        const race = activeRaces.get(channelId);
-        if(!race) return;
-        await startRace(interaction.channel, race.bettors);
-        activeRaces.delete(channelId);
-      },10000);
-    }
-
-    const race = activeRaces.get(channelId);
-    if(race.bettors.has(uid)) return interaction.editReply("이미 베팅하셨습니다.");
-    race.bettors.set(uid,{horseIndex,bet});
-    await changeBalance(uid,-bet,"race_lock");
-    return interaction.editReply(`경마 베팅 완료! 배팅 ${bet}포인트, 선택한 말: ${horses[horseIndex]}`);
-  }
-});
-
-// -------------------
-// 블랙잭 & 바카라 자동 진행 함수
-// -------------------
-// (이전 코드 그대로 유지)
-
-// -------------------
 // 슬래시 명령 등록
 // -------------------
-// (이전 코드 그대로 유지)
+const commandList = [
+  new SlashCommandBuilder().setName("돈줘").setDescription("기본금 지급"),
+  new SlashCommandBuilder().setName("잔고").setDescription("잔고 조회"),
+  new SlashCommandBuilder().setName("슬롯").setDescription("슬롯머신").addIntegerOption(o=>o.setName("배팅").setDescription("배팅 금액")),
+  new SlashCommandBuilder().setName("복권구매").setDescription("복권 구매").addIntegerOption(o=>o.setName("수량").setDescription("구매 장 수")),
+  new SlashCommandBuilder().setName("복권상태").setDescription("복권 판매 현황"),
+  new SlashCommandBuilder().setName("관리자지급").setDescription("관리자 포인트 조정")
+    .addUserOption(o=>o.setName("대상").setDescription("대상 유저").setRequired(true))
+    .addIntegerOption(o=>o.setName("금액").setDescription("양수=지급, 음수=회수").setRequired(true)),
+  new SlashCommandBuilder().setName("블랙잭").setDescription("블랙잭 게임").addIntegerOption(o=>o.setName("배팅").setDescription("배팅 금액")),
+  new SlashCommandBuilder().setName("바카라").setDescription("바카라 게임")
+    .addStringOption(o=>o.setName("배팅방향").setDescription("플레이어/뱅커/무승부"))
+    .addIntegerOption(o=>o.setName("배팅").setDescription("배팅 금액")),
+  new SlashCommandBuilder().setName("경마").setDescription("경마 게임")
+    .addIntegerOption(o=>o.setName("번호").setDescription("1~7번 선택").setRequired(true))
+    .addIntegerOption(o=>o.setName("배팅").setDescription("배팅 금액"))
+].map(cmd=>cmd.toJSON());
+
+async function registerCommands(){
+  if(!CLIENT_ID || !TOKEN) return;
+  const rest = new REST({ version:'10' }).setToken(TOKEN);
+  try{
+    if(GUILD_ID) await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body:commandList });
+    else await rest.put(Routes.applicationCommands(CLIENT_ID), { body:commandList });
+    console.log("슬래시 명령 등록 완료");
+  }catch(e){ console.error("명령 등록 실패", e); }
+}
 
 // -------------------
 // ready 이벤트
