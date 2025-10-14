@@ -291,7 +291,7 @@ if (cmd === "바카라") {
   return interaction.editReply(baccaratResultText);
 }
 
-  { catch (err) }
+} catch (err) {
     console.error("interaction 처리 중 오류:", err);
     try {
       if (interaction.deferred || interaction.replied) await interaction.editReply("명령 처리 중 오류가 발생했습니다.");
@@ -302,8 +302,15 @@ if (cmd === "바카라") {
 
 // ------------------- ♠️ 블랙잭 -------------------
 if (cmd === "블랙잭") {
-  try {
-    await interaction.deferReply();
+ try {
+  await interaction.deferReply();
+  // 블랙잭 게임 로직
+  await interaction.editReply(`🎲 결과: ${result}`);
+} catch (err) {
+  console.error(err);
+  await interaction.reply("❌ 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+}
+
 
     const uid = interaction.user.id;
     const bet = Number(interaction.options.getInteger("배팅") ?? 100);
@@ -639,6 +646,7 @@ client.on("ready", async () => {
 // 로그인
 // -------------------
 client.login(TOKEN);
+
 
 
 
