@@ -90,22 +90,20 @@ const client = new Client({
 });
 
 // -------------------
-// 슬롯머신
+// 슬롯
 // -------------------
 function spinSlot() {
   const reels = ["🍒", "🍋", "🍊", "🔔", "⭐", "7️⃣"];
   const r1 = reels[Math.floor(Math.random() * reels.length)];
   const r2 = reels[Math.floor(Math.random() * reels.length)];
   const r3 = reels[Math.floor(Math.random() * reels.length)];
-  let multiplier = 0; // 총 지급 배수 (스테이크 포함)
+  let payout = 0;
   if (r1 === r2 && r2 === r3) {
-    if (r1 === "7️⃣") multiplier = 10;
-    else if (r1 === "⭐") multiplier = 6;
-    else multiplier = 4;
-  } else if (r1 === r2 || r2 === r3 || r1 === r3) {
-    multiplier = 2;
-  }
-  return { r1, r2, r3, multiplier };
+    if (r1 === "7️⃣") payout = 10;
+    else if (r1 === "⭐") payout = 6;
+    else payout = 4;
+  } else if (r1 === r2 || r2 === r3 || r1 === r3) payout = 2;
+  return { r1, r2, r3, payout };
 }
 
 // -------------------
@@ -138,7 +136,7 @@ function calcBlackjack(hand) {
 // -------------------
 async function runLotteryDraw(channel) {
   const tickets = await db.all("SELECT * FROM lottery_tickets");
-  if (!tickets || tickets.length === 0) { if (channel) channel.send("오늘 복권 참여자가 없습니다."); return; }
+  if (tickets.length === 0) { if (channel) channel.send("오늘 복권 참여자가 없습니다."); return; }
   const winnerTicket = tickets[Math.floor(Math.random() * tickets.length)];
   const winnerId = winnerTicket.user_id;
   const prize = tickets.length * 100;
@@ -155,7 +153,7 @@ function scheduleLottery(channelId) {
 }
 
 // -------------------
-// 게임 상태 (블랙잭/바카라 등)
+// 블랙잭 & 바카라 상태
 // -------------------
 const activeBlackjacks = new Map();
 const activeBaccarat = new Map();
@@ -542,4 +540,5 @@ client.on("ready", async () => {
 // 로그인
 // -------------------
 client.login(TOKEN);
+
 
