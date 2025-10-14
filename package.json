@@ -1,0 +1,17 @@
+{
+  "name": "dovakbot",
+  "version": "1.0.0",
+  "description": "Discord game bot",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.15.3",
+    "sqlite3": "^5.1.6",
+    "node-cron": "^3.0.3",
+    "@discordjs/rest": "^2.3.0",
+    "discord-api-types": "^0.37.61",
+    "dotenv": "^16.3.1"
+  }
+}
