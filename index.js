@@ -1,7 +1,6 @@
 // index.js
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
-import { promisify } from "util";
 import cron from "node-cron";
 import { Client, GatewayIntentBits, Partials, SlashCommandBuilder, REST, Routes } from "discord.js";
 import process from "process";
@@ -74,7 +73,7 @@ async function getUser(userId) {
 
 async function changeBalance(userId, delta, reason="adjust") {
   await getUser(userId);
-  await db.runAsync("UPDATE users SET balance = balance + ? WHERE id = ?", delta, userId);
+  await db.run("UPDATE users SET balance=? WHERE id=?", 100, uid);
   await db.runAsync("INSERT INTO transactions(user_id, delta, reason, ts) VALUES(?,?,?,?)", userId, delta, reason, Date.now());
   return await getUser(userId);
 }
@@ -465,3 +464,4 @@ client.on("ready", async ()=>{
 // 로그인
 // -------------------
 client.login(TOKEN);
+
