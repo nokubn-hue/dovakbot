@@ -5,6 +5,14 @@ import cron from "node-cron";
 import { Client, GatewayIntentBits, Partials, SlashCommandBuilder, REST, Routes } from "discord.js";
 import process from "process";
 
+import express from "express";
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get("/", (req, res) => res.send("봇이 실행 중입니다."));
+app.listen(PORT, () => console.log(`Web server listening on port ${PORT}`));
+
 // -------------------
 // 환경 변수
 // -------------------
@@ -459,5 +467,6 @@ client.on("ready", async ()=>{
 // 로그인
 // -------------------
 client.login(TOKEN);
+
 
 
