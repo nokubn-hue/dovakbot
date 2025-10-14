@@ -158,7 +158,7 @@ const activeBlackjacks = new Map();
 const activeBaccarat = new Map();
 
 // -------------------
-// 경마 (실시간 이동, 이름 포함)
+// 경마 
 // -------------------
 const horses = [
   { name: "썬더", emoji: "🐎" },
@@ -170,38 +170,40 @@ const horses = [
   { name: "썬샤인", emoji: "🐎" },
 ];
 const activeRaces = new Map();
-
 async function startRace(channel, bettors) {
   let positions = new Array(horses.length).fill(0);
-  const trackLength = 30;
-  const msg = await channel.send("🏁 경주 시작!");
+  const msg = await channel.send("🏁 경주 시작! 잠시만 기다려주세요...");
 
   return new Promise((resolve) => {
     let finished = false;
+    const trackLength = 30;
+
     const interval = setInterval(async () => {
       for (let i = 0; i < horses.length; i++) {
-        positions[i] += Math.floor(Math.random() * 3) + 1;
-        if (positions[i] > trackLength) positions[i] = trackLength;
+        positions[i] += Math.random() < 0.6 ? 0 : Math.floor(Math.random() * 3);
+        if (positions[i] >= trackLength) positions[i] = trackLength;
       }
 
-      const raceDisplay = positions
-        .map((pos, i) => `${horses[i].emoji} ${horses[i].name} |${"·".repeat(pos)}🏁`)
+      // ✅ 말과 깃발 위치만 이동시킨 버전
+      const raceMsg = positions
+        .map((p, i) => |${"·".repeat(p)}${horses[i]}${"·".repeat(trackLength - p)}🏁)
         .join("\n");
 
-      await msg.edit(raceDisplay);
+      await msg.edit(🏇 경주 중...\n\n${raceMsg});
 
-      const winners = positions.map((p, i) => (p >= trackLength ? i : null)).filter(x => x !== null);
-
+      const winners = positions.map((p, i) => (p >= trackLength ? i : null)).filter((x) => x !== null);
       if (winners.length > 0) {
         finished = true;
         clearInterval(interval);
         const winnerIdx = winners[0];
 
         for (const [uid, b] of bettors.entries()) {
-          if (b.horseIndex === winnerIdx) await changeBalance(uid, b.bet * 5, "race_win");
+          if (b.horseIndex === winnerIdx) {
+            await changeBalance(uid, b.bet * 5, "race_win");
+          }
         }
 
-        await channel.send(`🏆 경주 종료! 우승 말: ${horses[winnerIdx].name} ${horses[winnerIdx].emoji}`);
+        await channel.send(🏆 경주 종료! 우승 말: ${horses[winnerIdx]} (번호 ${winnerIdx + 1}));
         resolve(winnerIdx);
       }
     }, 1000);
@@ -209,7 +211,7 @@ async function startRace(channel, bettors) {
     setTimeout(() => {
       if (!finished) {
         clearInterval(interval);
-        channel.send("⏱ 경주 시간초과!");
+        msg.reply("⏱ 경주가 시간초과로 종료되었습니다.");
         resolve(null);
       }
     }, 40000);
@@ -364,3 +366,4 @@ client.on("ready", async () => {
 // 로그인
 // -------------------
 client.login(TOKEN);
+
