@@ -291,7 +291,7 @@ if (cmd === "바카라") {
   return interaction.editReply(baccaratResultText);
 }
 
-  } catch (err) {
+  { catch (err) }
     console.error("interaction 처리 중 오류:", err);
     try {
       if (interaction.deferred || interaction.replied) await interaction.editReply("명령 처리 중 오류가 발생했습니다.");
@@ -639,6 +639,7 @@ client.on("ready", async () => {
 // 로그인
 // -------------------
 client.login(TOKEN);
+
 
 
 
