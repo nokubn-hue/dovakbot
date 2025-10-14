@@ -1,20 +1,21 @@
 {
   "name": "dovakbot",
   "version": "1.0.0",
-  "description": "Discord dovakbot",
+  "description": "Discord bot with slot, blackjack, baccarat, horse racing, lottery",
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "build": "echo 'No build step required'"
   },
   "dependencies": {
-    "discord.js": "^14.12.0",
+    "discord.js": "^14.12.1",
     "express": "^4.18.2",
     "sqlite3": "^5.1.6",
     "sqlite": "^4.1.2",
     "node-cron": "^3.0.2"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=18.0.0"
   }
 }
