@@ -152,9 +152,9 @@ function scheduleLottery(channelId){
 // -------------------
 // 블랙잭/바카라/경마 활성 게임
 // -------------------
+const horses = ["🐎","🐎","🐎","🐎","🐎","🐎","🐎"];
 const activeBlackjacks = new Map();
 const activeBaccarat = new Map();
-const horses = ["🐎","🐎","🐎","🐎","🐎","🐎","🐎"];
 const activeRaces = new Map();
 
 // -------------------
@@ -342,3 +342,4 @@ client.on("ready", async ()=>{
 // 로그인
 // -------------------
 client.login(TOKEN);
+
