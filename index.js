@@ -119,8 +119,7 @@ function createDeck() {
 }
 
 function calcBlackjack(hand) {
-  let total = 0,
-    aces = 0;
+  let total = 0, aces = 0;
   for (const c of hand) {
     if (c === "A") { aces++; total += 11; }
     else if (["J", "Q", "K"].includes(c)) total += 10;
@@ -170,6 +169,7 @@ const horses = [
   { name: "썬샤인", emoji: "🐎" },
 ];
 const activeRaces = new Map();
+
 async function startRace(channel, bettors) {
   let positions = new Array(horses.length).fill(0);
   const msg = await channel.send("🏁 경주 시작! 잠시만 기다려주세요...");
@@ -184,12 +184,11 @@ async function startRace(channel, bettors) {
         if (positions[i] >= trackLength) positions[i] = trackLength;
       }
 
-      // ✅ 말과 깃발 위치만 이동시킨 버전
       const raceMsg = positions
-  .map((pos, i) => `${horses[i].emoji} ${horses[i].name} |${"·".repeat(pos)}🏁`)
-  .join("\n");
+        .map((pos, i) => `${horses[i].emoji} ${horses[i].name} |${"·".repeat(pos)}🏁`)
+        .join("\n");
 
-await msg.edit(`🏇 경주 중...\n\n${raceMsg}`);
+      await msg.edit(`🏇 경주 중...\n\n${raceMsg}`);
 
       const winners = positions.map((p, i) => (p >= trackLength ? i : null)).filter((x) => x !== null);
       if (winners.length > 0) {
@@ -203,7 +202,7 @@ await msg.edit(`🏇 경주 중...\n\n${raceMsg}`);
           }
         }
 
-        await channel.send(🏆 경주 종료! 우승 말: ${horses[winnerIdx]} (번호 ${winnerIdx + 1}));
+        await channel.send(`🏆 경주 종료! 우승 말: ${horses[winnerIdx].emoji} ${horses[winnerIdx].name} (번호 ${winnerIdx + 1})`);
         resolve(winnerIdx);
       }
     }, 1000);
@@ -329,10 +328,6 @@ const commandList = [
   new SlashCommandBuilder().setName("경마").setDescription("경마 게임")
     .addIntegerOption(o => o.setName("번호").setDescription("1~7번 선택").setRequired(true))
     .addIntegerOption(o => o.setName("배팅").setDescription("배팅 금액")),
-  new SlashCommandBuilder().setName("블랙잭").setDescription("블랙잭 게임").addIntegerOption(o => o.setName("배팅").setDescription("배팅 금액")),
-  new SlashCommandBuilder().setName("바카라").setDescription("바카라 게임")
-    .addStringOption(o => o.setName("배팅방향").setDescription("플레이어/뱅커/무승부"))
-    .addIntegerOption(o => o.setName("배팅").setDescription("배팅 금액")),
 ].map(cmd => cmd.toJSON());
 
 async function registerCommands() {
@@ -366,6 +361,3 @@ client.on("ready", async () => {
 // 로그인
 // -------------------
 client.login(TOKEN);
-
-
-
