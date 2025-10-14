@@ -309,8 +309,13 @@ if (cmd === "블랙잭") {
     const bet = Number(interaction.options.getInteger("배팅") ?? 100);
     const user = await getUser(uid);
 
-    if (bet <= 0) return interaction.editReply("배팅 금액은 1 이상이어야 합니다.");
-    if (user.balance < bet) return interaction.editReply("잔고가 부족합니다.");
+    if (bet <= 0) {
+      return interaction.editReply("배팅 금액은 1 이상이어야 합니다.");
+    }
+
+    if (user.balance < bet) {
+      return interaction.editReply("잔고가 부족합니다.");
+    }
 
     await changeBalance(uid, -bet, "blackjack_bet");
 
@@ -318,7 +323,11 @@ if (cmd === "블랙잭") {
     const suits = ["♠", "♥", "♦", "♣"];
     const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
     const deck = [];
-    for (const s of suits) for (const r of ranks) deck.push(r + s);
+    for (const s of suits) {
+      for (const r of ranks) {
+        deck.push(`${r}${s}`);
+      }
+    }
     deck.sort(() => Math.random() - 0.5);
 
     const draw = () => deck.pop();
@@ -327,7 +336,7 @@ if (cmd === "블랙잭") {
       let total = 0;
       let aces = 0;
       for (const c of cards) {
-        const v = c.replace(/[^A-Z0-9]/g, ""); // 숫자/문자만
+        const v = c.replace(/[^A-Z0-9]/g, "");
         if (["J", "Q", "K"].includes(v)) total += 10;
         else if (v === "A") {
           total += 11;
@@ -347,11 +356,9 @@ if (cmd === "블랙잭") {
     let playerTotal = getValue(playerCards);
     let dealerTotal = getValue(dealerCards);
 
-    let message = `🃏 **블랙잭 시작!**  
-당신의 카드: ${playerCards.join(", ")} (${playerTotal})  
-딜러의 카드: ${dealerCards[0]}, ❓`;
-
-    await interaction.editReply(message);
+    await interaction.editReply(
+      `🃏 **블랙잭 시작!**\n당신의 카드: ${playerCards.join(", ")} (${playerTotal})\n딜러의 카드: ${dealerCards[0]}, ❓`
+    );
 
     // 자동 진행
     while (playerTotal < 17) {
@@ -373,37 +380,37 @@ if (cmd === "블랙잭") {
     else winner = "무승부";
 
     let payout = 0;
-    let result = `\n\n🎲 **최종 결과** 🎲  
-당신의 카드: ${playerCards.join(", ")} (${playerTotal})  
-딜러의 카드: ${dealerCards.join(", ")} (${dealerTotal})  
---------------------------  
-`;
+    let result = `\n\n🎲 **최종 결과** 🎲\n당신의 카드: ${playerCards.join(", ")} (${playerTotal})\n딜러의 카드: ${dealerCards.join(", ")} (${dealerTotal})\n--------------------------\n`;
 
     if (winner === "플레이어") {
-      payout = Math.floor(bet * 2);
-      await changeBalance(uid, payout, "blackjack_win");
-      result += `✅ 당신이 승리했습니다! ${payout}포인트 지급 🎉`;
-    } else if (winner === "무승부") {
-      payout = bet;
-      await changeBalance(uid, payout, "blackjack_draw");
-      result += `🤝 무승부입니다. 배팅액이 반환됩니다.`;
-    } else {
-      result += `❌ 딜러가 승리했습니다.  — ${bet}포인트 차감`;
-    }
+    payout = Math.floor(bet * 2);
+    await changeBalance(uid, payout, "blackjack_win");
+    blackjackResultText += `✅ 당신이 승리했습니다! (+${payout} 포인트)`;
+  } else if (winner === "무승부") {
+    payout = bet;
+    await changeBalance(uid, payout, "blackjack_draw");
+    blackjackResultText += `🤝 무승부입니다. 배팅액이 반환됩니다.`;
+  } else {
+    blackjackResultText += `❌ 딜러가 승리했습니다. (-${bet} 포인트)`;
+  }
 
     const newBal = (await getUser(uid)).balance;
     result += `\n\n현재 잔고: ${newBal}포인트`;
 
-    await interaction.editReply(result);
+    await interaction.followUp(result);
   } catch (err) {
     console.error("블랙잭 처리 중 오류:", err);
     if (interaction.deferred || interaction.replied) {
-      await interaction.editReply("⚠️ 블랙잭 중 오류가 발생했습니다.");
+      await interaction.followUp("⚠️ 블랙잭 중 오류가 발생했습니다.");
     } else {
-      await interaction.reply({ content: "⚠️ 블랙잭 중 오류가 발생했습니다.", ephemeral: true });
+      await interaction.reply({
+        content: "⚠️ 블랙잭 중 오류가 발생했습니다.",
+        ephemeral: true,
+      });
     }
   }
 }
+
 
 
 client.on("interactionCreate", async (interaction) => {
@@ -632,6 +639,7 @@ client.on("ready", async () => {
 // 로그인
 // -------------------
 client.login(TOKEN);
+
 
 
 
