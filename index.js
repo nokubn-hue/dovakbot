@@ -159,8 +159,17 @@ const activeRaces = new Map();
 // -------------------
 // 경마 게임
 // -------------------
-const horses = ["🐎","🐎","🐎","🐎","🐎","🐎","🐎"]; // 7마리
+const horses = [
+    { emoji:"🐎", name:"번개" },
+    { emoji:"🐎", name:"스톰" },
+    { emoji:"🐎", name:"섀도우" },
+    { emoji:"🐎", name:"썬더" },
+    { emoji:"🐎", name:"블레이즈" },
+    { emoji:"🐎", name:"윈드" },
+    { emoji:"🐎", name:"라이트닝" }
+]; // 7마리
 const activeRaces = new Map(); // channelId -> { bettors: Map<userId, {horseIndex, bet}> }
+
 
 async function startRace(channel, bettors) {
     let positions = new Array(horses.length).fill(0);
@@ -394,5 +403,6 @@ client.on("ready", async ()=>{
 // 로그인
 // -------------------
 client.login(TOKEN);
+
 
 
