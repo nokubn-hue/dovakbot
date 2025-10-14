@@ -121,23 +121,6 @@ const dbRun = promisify(db.run.bind(db));
 const dbGet = promisify(db.get.bind(db));
 const dbAll = promisify(db.all.bind(db));
 
-async function initDB() {
-  await dbRun(`
-    CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      balance INTEGER DEFAULT 0,
-      last_claim INTEGER DEFAULT 0
-    );
-  `);
-  await dbRun(`
-    CREATE TABLE IF NOT EXISTS transactions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id TEXT,
-      delta INTEGER,
-      reason TEXT,
-      ts INTEGER
-    );
-  `);
   await dbRun(`
     CREATE TABLE IF NOT EXISTS lottery_tickets (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -629,6 +612,7 @@ async function runRace(channelId){
 
 // 로그인
 client.login(TOKEN);
+
 
 
 
