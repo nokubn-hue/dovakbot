@@ -73,7 +73,7 @@ async function getUser(userId) {
 
 async function changeBalance(userId, delta, reason = "adjust") {
   const user = await getUser(userId);
-  const newBalance = user.balance + delta;
+  const newBalance = Math.max(0, user.balance + delta); // 잔고 0 이하 방지
   await db.run("UPDATE users SET balance=? WHERE id=?", newBalance, userId);
   await db.run("INSERT INTO transactions(user_id, delta, reason, ts) VALUES(?,?,?,?)", userId, delta, reason, Date.now());
   return await getUser(userId);
@@ -88,7 +88,7 @@ const client = new Client({
 });
 
 // -------------------
-// 슬롯
+// 슬롯머신
 // -------------------
 function spinSlot() {
   const reels = ["🍒", "🍋", "🍊", "🔔", "⭐", "7️⃣"];
@@ -105,36 +105,14 @@ function spinSlot() {
 }
 
 // -------------------
-// 블랙잭 헬퍼
-// -------------------
-function createDeck() {
-  const faces = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
-  const deck = [];
-  for (let i = 0; i < 4; i++) for (const f of faces) deck.push(f);
-  for (let i = deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [deck[i], deck[j]] = [deck[j], deck[i]];
-  }
-  return deck;
-}
-
-function calcBlackjack(hand) {
-  let total = 0, aces = 0;
-  for (const c of hand) {
-    if (c === "A") { aces++; total += 11; }
-    else if (["J", "Q", "K"].includes(c)) total += 10;
-    else total += Number(c);
-  }
-  while (total > 21 && aces > 0) { total -= 10; aces--; }
-  return total;
-}
-
-// -------------------
 // 복권
 // -------------------
 async function runLotteryDraw(channel) {
   const tickets = await db.all("SELECT * FROM lottery_tickets");
-  if (tickets.length === 0) { if (channel) channel.send("오늘 복권 참여자가 없습니다."); return; }
+  if (tickets.length === 0) {
+    if (channel) channel.send("오늘 복권 참여자가 없습니다.");
+    return;
+  }
   const winnerTicket = tickets[Math.floor(Math.random() * tickets.length)];
   const winnerId = winnerTicket.user_id;
   const prize = tickets.length * 100;
@@ -151,13 +129,7 @@ function scheduleLottery(channelId) {
 }
 
 // -------------------
-// 블랙잭 & 바카라 상태
-// -------------------
-const activeBlackjacks = new Map();
-const activeBaccarat = new Map();
-
-// -------------------
-// 경마 
+// 경마 시스템
 // -------------------
 const horses = [
   { name: "썬더", emoji: "🐎" },
@@ -168,42 +140,42 @@ const horses = [
   { name: "스타", emoji: "🐎" },
   { name: "썬샤인", emoji: "🐎" },
 ];
+
 const activeRaces = new Map();
 
 async function startRace(channel, bettors) {
   let positions = new Array(horses.length).fill(0);
   const msg = await channel.send("🏁 경주 시작! 잠시만 기다려주세요...");
+  const trackLength = 30;
 
   return new Promise((resolve) => {
     let finished = false;
-    const trackLength = 30;
 
     const interval = setInterval(async () => {
       for (let i = 0; i < horses.length; i++) {
-        positions[i] += Math.random() < 0.6 ? 0 : Math.floor(Math.random() * 3);
-        if (positions[i] >= trackLength) positions[i] = trackLength;
+        positions[i] += Math.random() < 0.5 ? 1 : 0; // 전진 확률 조정
+        if (positions[i] > trackLength) positions[i] = trackLength;
       }
 
-      // ✅ 말과 깃발 위치만 이동시킨 버전
       const raceMsg = positions
-        .map((p, i) => |${"·".repeat(p)}${horses[i]}${"·".repeat(trackLength - p)}🏁)
+        .map((p, i) => `${horses[i].emoji} ${horses[i].name.padEnd(5, " ")} | ${"·".repeat(p)}🏁`)
         .join("\n");
 
-      await msg.edit(🏇 경주 중...\n\n${raceMsg});
+      await msg.edit(`🏇 경주 중...\n\n${raceMsg}`);
 
-      const winners = positions.map((p, i) => (p >= trackLength ? i : null)).filter((x) => x !== null);
-      if (winners.length > 0) {
+      const winnerIdx = positions.findIndex((p) => p >= trackLength);
+      if (winnerIdx !== -1) {
         finished = true;
         clearInterval(interval);
-        const winnerIdx = winners[0];
 
-      for (const [uid, b] of bettors.entries()) {
+        // 승자 처리
+        for (const [uid, b] of bettors.entries()) {
           if (b.horseIndex === winnerIdx) {
             await changeBalance(uid, b.bet * 4, "race_win");
           }
         }
 
-        await channel.send(🏆 경주 종료! 우승 말: ${horses[winnerIdx]} (번호 ${winnerIdx + 1}));
+        await channel.send(`🏆 경주 종료! 우승 말: ${horses[winnerIdx].name} (번호 ${winnerIdx + 1})`);
         resolve(winnerIdx);
       }
     }, 1000);
@@ -211,19 +183,17 @@ async function startRace(channel, bettors) {
     setTimeout(() => {
       if (!finished) {
         clearInterval(interval);
-        msg.reply("⏱ 경주가 시간초과로 종료되었습니다.");
+        msg.reply("⏱ 경주가 시간 초과로 종료되었습니다.");
         resolve(null);
       }
     }, 40000);
   });
 }
-﻿
-
 
 // -------------------
 // interactionCreate
 // -------------------
-client.on("interactionCreate", async interaction => {
+client.on("interactionCreate", async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
   const uid = interaction.user.id;
   const cmd = interaction.commandName;
@@ -251,10 +221,12 @@ client.on("interactionCreate", async interaction => {
     if (user.balance < bet) return interaction.reply({ content: "잔고 부족", ephemeral: true });
 
     const spin = spinSlot();
-    const delta = spin.payout > 0 ? bet * spin.payout : -bet;
+    const delta = spin.payout > 0 ? bet * (spin.payout - 1) : -bet;
     await changeBalance(uid, delta, "slot");
     const newBal = (await getUser(uid)).balance;
-    return interaction.reply({ content: `슬롯 결과: ${spin.r1}${spin.r2}${spin.r3}\n결과: ${delta > 0 ? `승리 +${delta}` : `패배 ${-delta}`}\n잔고: ${newBal}` });
+    return interaction.reply({
+      content: `슬롯 결과: ${spin.r1}${spin.r2}${spin.r3}\n결과: ${delta >= 0 ? `승리 +${delta}` : `패배 ${-delta}`}\n잔고: ${newBal}`,
+    });
   }
 
   if (cmd === "복권구매") {
@@ -288,34 +260,39 @@ client.on("interactionCreate", async interaction => {
 
   // ------------------- 경마 -------------------
   if (cmd === "경마") {
-  await interaction.deferReply();
-  const channelId = interaction.channelId;
-  const bet = interaction.options.getInteger("배팅") ?? 100;
-  const horseNum = interaction.options.getInteger("번호");
+    await interaction.deferReply();
+    const channelId = interaction.channelId;
+    const bet = interaction.options.getInteger("배팅") ?? 100;
+    const horseNum = interaction.options.getInteger("번호");
 
-  if (horseNum < 1 || horseNum > horses.length) return interaction.editReply("1~7번 말 중 선택하세요");
-  const user = await getUser(uid);
-  if (user.balance < bet) return interaction.editReply("잔고 부족");
+    if (horseNum < 1 || horseNum > horses.length)
+      return interaction.editReply("1~7번 말 중 선택하세요");
 
-  if (!activeRaces.has(channelId)) {
-    activeRaces.set(channelId, { bettors: new Map(), started: false });
-    setTimeout(async () => {
-      const race = activeRaces.get(channelId);
-      if (!race || race.started) return;
-      race.started = true;
-      await startRace(interaction.channel, race.bettors);
-      activeRaces.delete(channelId);
-    }, 10000);
+    const user = await getUser(uid);
+    if (user.balance < bet) return interaction.editReply("잔고 부족");
+
+    if (!activeRaces.has(channelId)) {
+      activeRaces.set(channelId, { bettors: new Map(), started: false });
+      setTimeout(async () => {
+        const race = activeRaces.get(channelId);
+        if (!race || race.started) return;
+        race.started = true;
+        await startRace(interaction.channel, race.bettors);
+        activeRaces.delete(channelId);
+      }, 10000);
+    }
+
+    const race = activeRaces.get(channelId);
+    if (race.bettors.has(uid)) return interaction.editReply("이미 베팅했습니다");
+
+    race.bettors.set(uid, { horseIndex: horseNum - 1, bet });
+    await changeBalance(uid, -bet, "race_lock");
+    return interaction.editReply(
+      `경마 베팅 완료! 배팅 ${bet}포인트, 선택 말: ${horses[horseNum - 1].name}`
+    );
   }
+});
 
-  const race = activeRaces.get(channelId);
-  if (race.bettors.has(uid)) return interaction.editReply("이미 베팅했습니다");
-
-  race.bettors.set(uid, { horseIndex: horseNum - 1, bet });
-  await changeBalance(uid, -bet, "race_lock");
-  return interaction.editReply(`경마 베팅 완료! 배팅 ${bet}포인트, 선택 말: ${horses[horseNum - 1].name}`);
-}
-  
 // -------------------
 // 슬래시 명령 등록
 // -------------------
@@ -335,12 +312,16 @@ const commandList = [
 
 async function registerCommands() {
   if (!CLIENT_ID || !TOKEN) return;
-  const rest = new REST({ version: '10' }).setToken(TOKEN);
+  const rest = new REST({ version: "10" }).setToken(TOKEN);
   try {
-    if (GUILD_ID) await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commandList });
-    else await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commandList });
+    if (GUILD_ID)
+      await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commandList });
+    else
+      await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commandList });
     console.log("슬래시 명령 등록 완료");
-  } catch (e) { console.error("명령 등록 실패", e); }
+  } catch (e) {
+    console.error("명령 등록 실패", e);
+  }
 }
 
 // -------------------
@@ -364,4 +345,3 @@ client.on("ready", async () => {
 // 로그인
 // -------------------
 client.login(TOKEN);
-
