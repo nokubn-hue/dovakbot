@@ -165,13 +165,13 @@ const activeBlackjacks = new Map(); // channelId -> game state
 const activeBaccarat = new Map();
 
 // 경마: 7마리, 이모지, 애니메이션
-const horses = ["🐎","🏇","🐴","🦄","🐎","🐎","🐎"]; // 7마리 (이모지 사용)
+const horses = ["🐎","🐎","🐎","🦄","🐎","🐎","🐎"]; // 7마리 (이모지 사용)
 function generateRaceMessage(positions){
   const lines = positions.map((p,i)=>`${horses[i]} |${"·".repeat(p)}🏁`);
   return lines.join("\n");
 }
 
-// 복권: 매일 09:00 KST에 자동 추첨
+// 복권: 매일 21:00 KST에 자동 추첨
 async function runLotteryDraw(channel){
   // 모든 티켓 읽기
   const tickets = await db.all("SELECT * FROM lottery_tickets");
@@ -541,3 +541,4 @@ async function runRace(channelId){
 
 // 로그인
 client.login(TOKEN);
+
