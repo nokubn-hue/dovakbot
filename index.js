@@ -2,6 +2,7 @@
 import fs from "fs";
 import sqlite3 from "sqlite3";
 const sqlite = sqlite3.verbose();
+const db = new sqlite.Database("./dovakbot.db");
 import { open } from "sqlite";
 import cron from "node-cron";
 import { Client, GatewayIntentBits, Partials, Collection, ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder, REST, Routes, EmbedBuilder } from "discord.js";
@@ -21,7 +22,7 @@ const TABLE_MIN_BET = 100;
 // DB 초기화
 let db;
 async function initDB(){
-  db = await open({ filename: './alohang.db', driver: sqlite3.Database });
+  db = await open({ filename: './dovakbot.db', driver: sqlite3.Database });
   await db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
@@ -499,4 +500,5 @@ async function runRace(channelId){
 
 // 로그인
 client.login(TOKEN);
+
 
