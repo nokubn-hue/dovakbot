@@ -69,11 +69,9 @@ async function getUser(userId) {
     await db.run("INSERT INTO users(id, balance, last_claim) VALUES(?,?,?)", userId, 0, 0);
     return await db.get("SELECT * FROM users WHERE id = ?", userId);
   }
-  // 보장: balance 숫자
   return { id: row.id, balance: Number(row.balance || 0), last_claim: row.last_claim || 0 };
 }
 
-// 핵심: balance를 직접 대입하지 않고 'balance = balance + ?'로 안전하게 변경
 async function changeBalance(userId, delta, reason = "adjust") {
   const d = Number(delta) || 0;
   await db.run("INSERT INTO transactions(user_id, delta, reason, ts) VALUES(?,?,?,?)", userId, d, reason, Date.now());
@@ -97,13 +95,13 @@ function spinSlot() {
   const r1 = reels[Math.floor(Math.random() * reels.length)];
   const r2 = reels[Math.floor(Math.random() * reels.length)];
   const r3 = reels[Math.floor(Math.random() * reels.length)];
-  let payout = 0;
+  let multiplier = 0;
   if (r1 === r2 && r2 === r3) {
-    if (r1 === "7️⃣") payout = 10;
-    else if (r1 === "⭐") payout = 6;
-    else payout = 4;
-  } else if (r1 === r2 || r2 === r3 || r1 === r3) payout = 2;
-  return { r1, r2, r3, payout };
+    if (r1 === "7️⃣") multiplier = 10;
+    else if (r1 === "⭐") multiplier = 6;
+    else multiplier = 4;
+  } else if (r1 === r2 || r2 === r3 || r1 === r3) multiplier = 2;
+  return { r1, r2, r3, multiplier };
 }
 
 // -------------------
@@ -394,23 +392,22 @@ client.on("interactionCreate", async (interaction) => {
 
     if (cmd === "슬롯") {
       const bet = Number(interaction.options.getInteger("배팅") ?? SLOT_DEFAULT_BET);
-      if (bet <= 0) return interaction.reply({ content: "배팅은 양수여야 함", ephemeral: true });
+      if (bet <= 0) return interaction.reply({ content: "배팅은 양수여야 합니다", ephemeral: true });
       const user = await getUser(uid);
       if (user.balance < bet) return interaction.reply({ content: "잔고 부족", ephemeral: true });
 
-      // 먼저 배팅금 차감
       await changeBalance(uid, -bet, "slot_bet");
       const spin = spinSlot();
+      const newBal = (await getUser(uid)).balance;
       if (spin.multiplier > 0) {
-        const payout = bet * spin.multiplier; // 스테이크 포함
+        const payout = bet * spin.multiplier;
         await changeBalance(uid, payout, "slot_win");
-        const newBal = (await getUser(uid)).balance;
-        return interaction.reply({ content: `슬롯 결과: ${spin.r1} ${spin.r2} ${spin.r3}\n승리! 배수: ${spin.multiplier} -> 상금 ${payout}포인트 지급\n잔고: ${newBal}` });
+        return interaction.reply({ content: `슬롯 결과: ${spin.r1} ${spin.r2} ${spin.r3}\n승리! 배수: ${spin.multiplier}, 상금 ${payout}포인트 지급\n잔고: ${newBal}` });
       } else {
-        const newBal = (await getUser(uid)).balance;
         return interaction.reply({ content: `슬롯 결과: ${spin.r1} ${spin.r2} ${spin.r3}\n꽝! 배팅액 ${bet}포인트 차감\n잔고: ${newBal}` });
       }
     }
+
 
     if (cmd === "복권구매") {
       const qty = Number(interaction.options.getInteger("수량") ?? 1);
@@ -477,7 +474,10 @@ client.on("interactionCreate", async (interaction) => {
 
   } catch (err) {
     console.error("interaction 처리 중 오류:", err);
-    try { if (interaction.deferred || interaction.replied) await interaction.editReply("명령 처리 중 오류가 발생했습니다."); else await interaction.reply({ content: "명령 처리 중 오류가 발생했습니다.", ephemeral: true }); } catch(e){/* ignore */ }
+    try {
+      if (interaction.deferred || interaction.replied) await interaction.editReply("명령 처리 중 오류가 발생했습니다.");
+      else await interaction.reply({ content: "명령 처리 중 오류가 발생했습니다.", ephemeral: true });
+    } catch (e) { /* 무시 */ }
   }
 });
 
@@ -540,5 +540,6 @@ client.on("ready", async () => {
 // 로그인
 // -------------------
 client.login(TOKEN);
+
 
 
