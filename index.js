@@ -5,14 +5,6 @@ import cron from "node-cron";
 import { Client, GatewayIntentBits, Partials, Collection, SlashCommandBuilder, REST, Routes } from "discord.js";
 import process from "process";
 
-// -------------------
-// 환경 변수
-// -------------------
-const TOKEN = process.env.DISCORD_TOKEN;
-const CLIENT_ID = process.env.CLIENT_ID || null;
-const GUILD_ID = process.env.GUILD_ID || null;
-const ADMIN_USER_IDS = (process.env.ADMIN_USER_IDS || "").split(",").filter(Boolean);
-
 // 환경 변수 읽기
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID || null;
@@ -645,5 +637,6 @@ async function runRace(channelId){
 
 // 로그인
 client.login(TOKEN);
+
 
 
