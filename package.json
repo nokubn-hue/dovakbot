@@ -1,4 +1,10 @@
 {
+  "engines": {
+    "node": "22.x"
+  }
+}
+
+{
   "name": "dovakbot",
   "version": "1.0.0",
   "description": "Discord game bot",
@@ -30,3 +36,4 @@
     "node-cron": "^3.0.2"
   }
 }
+
