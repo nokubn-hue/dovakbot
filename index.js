@@ -244,28 +244,18 @@ client.on("interactionCreate", async (interaction) => {
       return interaction.editReply("잔고가 부족합니다.");
 
     // 배팅 금액 차감
-    await changeBalance(uid, -bet, "baccarat_bet");
+  await changeBalance(uid, -bet, "baccarat_bet");
 
-    // 카드 덱 생성
-    const deck = createDeck();
-    const draw = () => deck.pop();
+      const deck = createDeck();
+      const draw = () => deck.pop();
+      const playerCards = [draw(), draw()];
+      const bankerCards = [draw(), draw()];
 
-    const playerCards = [draw(), draw()];
-    const bankerCards = [draw(), draw()];
+      const baccaratValue = (card) => (["J","Q","K","10"].includes(card)?0:(card==="A"?1:Number(card)));
+      const calcBaccaratTotal = (cards) => cards.reduce((a,c)=>a+baccaratValue(c),0)%10;
 
-    const baccaratValue = (card) => {
-      if (["J", "Q", "K", "10"].includes(card)) return 0;
-      if (card === "A") return 1;
-      return Number(card);
-    };
-
-    const calcBaccaratTotal = (cards) => {
-      const sum = cards.reduce((a, c) => a + baccaratValue(c), 0);
-      return sum % 10;
-    };
-
-    const playerTotal = calcBaccaratTotal(playerCards);
-    const bankerTotal = calcBaccaratTotal(bankerCards);
+      const playerTotal = calcBaccaratTotal(playerCards);
+      const bankerTotal = calcBaccaratTotal(bankerCards);
 
     let resultText = `🎴 **바카라 결과** 🎴
 플레이어: ${playerCards.join(", ")} (${playerTotal})
@@ -273,28 +263,29 @@ client.on("interactionCreate", async (interaction) => {
 --------------------------
 `;
 
-    let winner;
-    if (playerTotal > bankerTotal) winner = "플레이어";
-    else if (bankerTotal > playerTotal) winner = "뱅커";
-    else winner = "무승부";
+    let winner = playerTotal > bankerTotal ? "플레이어" : bankerTotal > playerTotal ? "뱅커" : "무승부";
+      let payout = 0;
+      let resultText = `🎴 바카라 결과 🎴\n플레이어: ${playerCards.join(", ")} (${playerTotal})\n뱅커: ${bankerCards.join(", ")} (${bankerTotal})\n--------------------------\n`;
 
-    let payout = 0;
-    if (side === winner) {
-      if (winner === "플레이어") payout = bet * 2;
-      else if (winner === "뱅커") payout = Math.floor(bet * 1.95);
-      else if (winner === "무승부") payout = bet * 9;
+      if (side === winner) {
+        payout = winner==="플레이어"?bet*2:winner==="뱅커"?Math.floor(bet*1.95):bet*9;
+        await changeBalance(uid, payout, "baccarat_win");
+        resultText += `✅ ${side} 승리! 💰 상금 ${payout}포인트 지급`;
+      } else resultText += `❌ ${side} 패배! 💸 배팅액 ${bet}포인트 차감`;
 
-      await changeBalance(uid, payout, "baccarat_win");
-      resultText += `✅ 당신이 선택한 ${side} 승리!\n💰 상금 ${payout}포인트 지급되었습니다.`;
-    } else {
-      resultText += `❌ 당신이 선택한 ${side}이(가) 패배했습니다.\n💸 배팅액 ${bet}포인트가 차감되었습니다.`;
+      resultText += `\n\n현재 잔고: ${(await getUser(uid)).balance}포인트`;
+      await interaction.editReply(resultText);
+      return;
     }
 
-    const newBal = (await getUser(uid)).balance;
-    resultText += `\n\n현재 잔고: ${newBal}포인트`;
-
-    return interaction.editReply(resultText);
+  } catch (err) {
+    console.error("interaction 처리 중 오류:", err);
+    try {
+      if (interaction.deferred || interaction.replied) await interaction.editReply("명령 처리 중 오류가 발생했습니다.");
+      else await interaction.reply({ content: "명령 처리 중 오류가 발생했습니다.", ephemeral: true });
+    } catch(e){}
   }
+});
 
   // ------------------- ♠️ 블랙잭 -------------------
   if (cmd === "블랙잭") {
@@ -366,77 +357,118 @@ client.on("interactionCreate", async (interaction) => {
     }
 
     const newBal = (await getUser(uid)).balance;
-    resultText += `\n\n현재 잔고: ${newBal}포인트`;
-
-    return interaction.editReply(resultText);
-  }
+       resultText += `\n\n현재 잔고: ${(await getUser(uid)).balance}포인트`;
+      await interaction.editReply(resultText);
+      return;
+    }
 });
 
 
+client.on("interactionCreate", async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
+  const cmd = interaction.commandName;
+  const uid = interaction.user.id;
+
   try {
+    // ------------------- 돈줘 -------------------
     if (cmd === "돈줘") {
       const user = await getUser(uid);
       const now = Date.now();
-      if (now - (user.last_claim || 0) < 24 * 60 * 60 * 1000)
-        return interaction.reply({ content: "이미 24시간 내 지급됨", ephemeral: true });
+      if (now - (user.last_claim || 0) < 24 * 60 * 60 * 1000) {
+        await interaction.reply({ content: "이미 24시간 내 지급됨", ephemeral: true });
+        return;
+      }
 
       await db.run("UPDATE users SET balance = balance + ?, last_claim = ? WHERE id = ?", DEFAULT_STARTING, now, uid);
       await db.run("INSERT INTO transactions(user_id, delta, reason, ts) VALUES(?,?,?,?)", uid, DEFAULT_STARTING, "daily_claim", now);
-      return interaction.reply({ content: `기본금 ${DEFAULT_STARTING} 지급 완료`, ephemeral: true });
+      await interaction.reply({ content: `기본금 ${DEFAULT_STARTING} 지급 완료`, ephemeral: true });
+      return;
     }
 
+
+       // ------------------- 잔고 -------------------
     if (cmd === "잔고") {
       const user = await getUser(uid);
-      return interaction.reply({ content: `잔고: ${user.balance}포인트`, ephemeral: true });
+      await interaction.reply({ content: `잔고: ${user.balance}포인트`, ephemeral: true });
+      return;
     }
 
+ // ------------------- 슬롯 -------------------
     if (cmd === "슬롯") {
       const bet = Number(interaction.options.getInteger("배팅") ?? SLOT_DEFAULT_BET);
-      if (bet <= 0) return interaction.reply({ content: "배팅은 양수여야 합니다", ephemeral: true });
+      if (bet <= 0) {
+        await interaction.reply({ content: "배팅은 양수여야 합니다", ephemeral: true });
+        return;
+      }
       const user = await getUser(uid);
-      if (user.balance < bet) return interaction.reply({ content: "잔고 부족", ephemeral: true });
+      if (user.balance < bet) {
+        await interaction.reply({ content: "잔고 부족", ephemeral: true });
+        return;
+      }
 
       await changeBalance(uid, -bet, "slot_bet");
       const spin = spinSlot();
       const newBal = (await getUser(uid)).balance;
+
       if (spin.multiplier > 0) {
         const payout = bet * spin.multiplier;
         await changeBalance(uid, payout, "slot_win");
-        return interaction.reply({ content: `슬롯 결과: ${spin.r1} ${spin.r2} ${spin.r3}\n승리! 배수: ${spin.multiplier}, 상금 ${payout}포인트 지급\n잔고: ${newBal}` });
+        await interaction.reply({ content: `슬롯 결과: ${spin.r1} ${spin.r2} ${spin.r3}\n승리! 배수: ${spin.multiplier}, 상금 ${payout}포인트 지급\n잔고: ${newBal}` });
       } else {
-        return interaction.reply({ content: `슬롯 결과: ${spin.r1} ${spin.r2} ${spin.r3}\n꽝! 배팅액 ${bet}포인트 차감\n잔고: ${newBal}` });
+        await interaction.reply({ content: `슬롯 결과: ${spin.r1} ${spin.r2} ${spin.r3}\n꽝! 배팅액 ${bet}포인트 차감\n잔고: ${newBal}` });
       }
+      return;
     }
 
 
+     // ------------------- 복권구매 -------------------
     if (cmd === "복권구매") {
       const qty = Number(interaction.options.getInteger("수량") ?? 1);
-      if (qty <= 0) return interaction.reply({ content: "1장 이상 구매하세요", ephemeral: true });
+      if (qty <= 0) {
+        await interaction.reply({ content: "1장 이상 구매하세요", ephemeral: true });
+        return;
+      }
+
       const price = qty * 100;
       const user = await getUser(uid);
-      if (user.balance < price) return interaction.reply({ content: "잔고 부족", ephemeral: true });
+      if (user.balance < price) {
+        await interaction.reply({ content: "잔고 부족", ephemeral: true });
+        return;
+      }
 
       for (let i = 0; i < qty; i++) {
         const ticket = Math.random().toString(36).slice(2, 10).toUpperCase();
         await db.run("INSERT INTO lottery_tickets(user_id, ticket_number, ts) VALUES(?,?,?)", uid, ticket, Date.now());
       }
       await changeBalance(uid, -price, "lottery_buy");
-      return interaction.reply({ content: `${qty}장 구매 완료 (총 ${price}포인트 차감)` });
+      await interaction.reply({ content: `${qty}장 구매 완료 (총 ${price}포인트 차감)` });
+      return;
     }
 
-    if (cmd === "복권상태") {
+
+     if (cmd === "복권상태") {
       const cntRow = await db.get("SELECT COUNT(*) as c FROM lottery_tickets");
       const cnt = cntRow ? Number(cntRow.c || 0) : 0;
-      return interaction.reply({ content: `현재 복권 판매량: ${cnt}장`, ephemeral: true });
+      await interaction.reply({ content: `현재 복권 판매량: ${cnt}장`, ephemeral: true });
+      return;
     }
 
-    if (cmd === "관리자지급") {
-      if (!isAdmin(uid)) return interaction.reply({ content: "관리자 전용", ephemeral: true });
+
+   if (cmd === "관리자지급") {
+      if (!isAdmin(uid)) {
+        await interaction.reply({ content: "관리자 전용", ephemeral: true });
+        return;
+      }
       const target = interaction.options.getUser("대상");
       const amount = Number(interaction.options.getInteger("금액") || 0);
-      if (!target) return interaction.reply({ content: "대상 지정 필요", ephemeral: true });
+      if (!target) {
+        await interaction.reply({ content: "대상 지정 필요", ephemeral: true });
+        return;
+      }
+
       await changeBalance(target.id, amount, "admin_adjust");
-      return interaction.reply({ content: `<@${target.id}>에게 ${amount}포인트 적용 완료` });
+      await interaction.reply({ content: `<@${target.id}>에게 ${amount}포인트 적용 완료` });
+      return;
     }
 
     // ------------------- 경마 -------------------
@@ -446,11 +478,16 @@ client.on("interactionCreate", async (interaction) => {
       const bet = Number(interaction.options.getInteger("배팅") ?? 100);
       const horseNum = Number(interaction.options.getInteger("번호"));
 
-      if (!Number.isInteger(horseNum) || horseNum < 1 || horseNum > horses.length)
-        return interaction.editReply("1~7번 말 중 선택하세요");
+      if (!Number.isInteger(horseNum) || horseNum < 1 || horseNum > horses.length) {
+        await interaction.editReply("1~7번 말 중 선택하세요");
+        return;
+      }
 
       const user = await getUser(uid);
-      if (user.balance < bet) return interaction.editReply("잔고 부족");
+      if (user.balance < bet) {
+        await interaction.editReply("잔고 부족");
+        return;
+      }
 
       if (!activeRaces.has(channelId)) {
         activeRaces.set(channelId, { bettors: new Map(), started: false });
@@ -462,6 +499,19 @@ client.on("interactionCreate", async (interaction) => {
           activeRaces.delete(channelId);
         }, 10000);
       }
+
+      const race = activeRaces.get(channelId);
+      if (race.bettors.has(uid)) {
+        await interaction.editReply("이미 베팅했습니다");
+        return;
+      }
+
+      await changeBalance(uid, -bet, "race_lock");
+      race.bettors.set(uid, { horseIndex: horseNum - 1, bet });
+      await interaction.editReply(`경마 베팅 완료! 배팅 ${bet}포인트, 선택 말: ${horses[horseNum - 1].name}`);
+      return;
+    }
+
 
       const race = activeRaces.get(channelId);
       if (race.bettors.has(uid)) return interaction.editReply("이미 베팅했습니다");
@@ -540,6 +590,7 @@ client.on("ready", async () => {
 // 로그인
 // -------------------
 client.login(TOKEN);
+
 
 
 
