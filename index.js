@@ -185,9 +185,9 @@ async function startRace(channel, bettors) {
       }
 
       // ✅ 말과 깃발 위치만 이동시킨 버전
-      const raceMsg = positions
-        .map((p, i) => |${"·".repeat(p)}${horses[i]}${"·".repeat(trackLength - p)}🏁)
-        .join("\n");
+      const raceDisplay = positions
+    .map((pos, i) => `${horses[i].emoji} ${horses[i].name} |${"·".repeat(pos)}🏁`)
+    .join("\n");
 
       await msg.edit(🏇 경주 중...\n\n${raceMsg});
 
@@ -366,4 +366,5 @@ client.on("ready", async () => {
 // 로그인
 // -------------------
 client.login(TOKEN);
+
 
