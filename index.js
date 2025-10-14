@@ -48,11 +48,6 @@ async function initDB() {
     );
   `);
   console.log("DB 연결 성공");
-
-  // promisify
-  db.runAsync = promisify(db.run.bind(db));
-  db.getAsync = promisify(db.get.bind(db));
-  db.allAsync = promisify(db.all.bind(db));
 }
 
 // -------------------
@@ -464,4 +459,5 @@ client.on("ready", async ()=>{
 // 로그인
 // -------------------
 client.login(TOKEN);
+
 
