@@ -1,19 +1,20 @@
 {
   "name": "dovakbot",
   "version": "1.0.0",
-  "description": "Discord bot dovakbot",
-  "main": "index.js",
+  "description": "Discord dovakbot",
   "type": "module",
+  "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
-  "engines": {
-    "node": "22.x"
-  },
   "dependencies": {
-    "discord.js": "^14.16.0",
-    "sqlite": "^4.1.2",
+    "discord.js": "^14.12.0",
+    "express": "^4.18.2",
     "sqlite3": "^5.1.6",
+    "sqlite": "^4.1.2",
     "node-cron": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=22.0.0"
   }
 }
