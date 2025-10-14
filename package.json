@@ -1,25 +1,21 @@
 {
-  "engines": {
-    "node": "22.x"
-  }
-}
-
-{
   "name": "dovakbot",
   "version": "1.0.0",
-  "description": "Discord game bot",
+  "type": "module",
   "main": "index.js",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "discord.js": "^14.15.3",
+    "discord.js": "^14.13.0",
     "sqlite3": "^5.1.6",
-    "node-cron": "^3.0.3",
-    "@discordjs/rest": "^2.3.0",
-    "discord-api-types": "^0.37.61",
-    "dotenv": "^16.3.1"
+    "sqlite": "^4.1.2",
+    "node-cron": "^3.0.2"
   }
+}
 
 }
 
@@ -36,4 +32,5 @@
     "node-cron": "^3.0.2"
   }
 }
+
 
