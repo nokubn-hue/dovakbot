@@ -235,8 +235,8 @@ const commandList = [
   new SlashCommandBuilder().setName("잔고").setDescription("잔고 조회"),
   new SlashCommandBuilder().setName("슬롯").setDescription("슬롯머신").addIntegerOption(o => o.setName("배팅").setDescription("배팅 금액")),
   new SlashCommandBuilder().setName("복권구매").setDescription("복권 구매").addIntegerOption(o => o.setName("수량").setDescription("장 수")),
-  new SlashCommandBuilder().setName("복권상태").setDescription("골라"),
-  new SlashCommandBuilder().setName("골라").setDescription("관리자 포인트 조정"),
+  new SlashCommandBuilder().setName("복권상태").setDescription("복권 상태"),
+  new SlashCommandBuilder().setName("골라").setDescription("골라"),
   new SlashCommandBuilder().setName("관리자지급").setDescription("관리자 포인트 조정")
     .addUserOption(o => o.setName("대상").setDescription("대상 유저").setRequired(true))
     .addIntegerOption(o => o.setName("금액").setDescription("양수=지급, 음수=회수").setRequired(true)),
@@ -641,3 +641,4 @@ client.on("ready", async () => {
 // 로그인
 ////////////////////////////////////////////////////////////////////////////////
 client.login(TOKEN);
+
