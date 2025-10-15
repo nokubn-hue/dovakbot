@@ -29,29 +29,35 @@ const SLOT_DEFAULT_BET = 100;
 const TABLE_MIN_BET = 100;
 const RACE_PAYOUT_MULTIPLIER = 5; // 이미 -bet 했을 때 지급할 '총액' 배수 (ex: 5이면 net +4*bet)
 
-// ------------------- Node.js + Discord.js CommonJS 예제 -------------------
-const { Client, GatewayIntentBits, Partials, REST, Routes, SlashCommandBuilder } = require("discord.js");
 const sqlite3 = require("sqlite3");
 const { open } = require("sqlite");
-const cron = require("node-cron");
-const express = require("express");
-const process = require("process");
 
-const app = express();
-const PORT = process.env.PORT || 3000;
-app.get("/", (req, res) => res.send("봇 실행 중"));
-app.listen(PORT, () => console.log(`웹서버 포트 ${PORT}에서 실행 중`));
-
-// 환경 변수
-const TOKEN = process.env.DISCORD_TOKEN;
-const CLIENT_ID = process.env.CLIENT_ID || null;
-const GUILD_ID = process.env.GUILD_ID || null;
-
-// Discord 클라이언트
-const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
-  partials: [Partials.Channel],
-});
+// DB 초기화
+let db;
+async function initDB() {
+  db = await open({ filename: "./dovakbot.db", driver: sqlite3.Database });
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      balance INTEGER DEFAULT 0,
+      last_claim INTEGER DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT,
+      delta INTEGER,
+      reason TEXT,
+      ts INTEGER
+    );
+    CREATE TABLE IF NOT EXISTS lottery_tickets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT,
+      ticket_number TEXT,
+      ts INTEGER
+    );
+  `);
+  console.log("DB 연결 성공");
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // DB 초기화
@@ -723,6 +729,7 @@ client.on("ready", async () => {
 // 로그인
 ////////////////////////////////////////////////////////////////////////////////
 client.login(TOKEN);
+
 
 
 
