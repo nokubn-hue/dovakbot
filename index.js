@@ -236,7 +236,22 @@ const commandList = [
   new SlashCommandBuilder().setName("슬롯").setDescription("슬롯머신").addIntegerOption(o => o.setName("배팅").setDescription("배팅 금액")),
   new SlashCommandBuilder().setName("복권구매").setDescription("복권 구매").addIntegerOption(o => o.setName("수량").setDescription("장 수")),
   new SlashCommandBuilder().setName("복권상태").setDescription("복권 상태"),
-  new SlashCommandBuilder().setName("골라").setDescription("골라"),
+import { SlashCommandBuilder } from "discord.js";
+
+new SlashCommandBuilder()
+  .setName("골라")
+  .setDescription("쉼표(,) 또는 공백/슬래시로 구분된 옵션들 중에서 무작위로 골라줍니다.")
+  .addStringOption(o =>
+    o.setName("option")
+     .setDescription("예: 사과,바나나,귤 또는 '사과 바나나 귤'")
+     .setRequired(true)
+  )
+  .addIntegerOption(o =>
+    o.setName("count")
+     .setDescription("한 번에 뽑을 개수 (기본 1)")
+     .setRequired(false)
+  );
+,
   new SlashCommandBuilder().setName("관리자지급").setDescription("관리자 포인트 조정")
     .addUserOption(o => o.setName("대상").setDescription("대상 유저").setRequired(true))
     .addIntegerOption(o => o.setName("금액").setDescription("양수=지급, 음수=회수").setRequired(true)),
@@ -375,74 +390,53 @@ client.on("interactionCreate", async (interaction) => {
 // 골라 (선택지 중 무작위 추첨)
 // -------------------
 if (cmd === "골라") {
- 
-  new SlashCommandBuilder()
-  .setName("골라")
-  .setDescription("쉼표(,) 또는 공백/슬래시로 구분된 옵션들 중에서 무작위로 골라줍니다.")
-  .addStringOption(o =>
-    o.setName("option") 
-     .setDescription("예: 사과,바나나,귤 또는 '사과 바나나 귤'")
-     .setRequired(true)
-  )
-  .addIntegerOption(o =>
-    o.setName("count") 
-     .setDescription("한 번에 뽑을 개수 (기본 1)")
-     .setRequired(false)
-  ),
-
   try {
-    await interaction.deferReply(); // 잠시 대기
-    const raw = (interaction.options.getString("옵션") || "").trim();
-    let count = Number(interaction.options.getInteger("개수") || 1);
+    await interaction.deferReply();
+
+    const raw = (interaction.options.getString("option") || "").trim();
+    let count = Number(interaction.options.getInteger("count") || 1);
+
     if (!raw) {
       await interaction.editReply({ content: "옵션을 입력하세요. (예: a,b,c 또는 a b c)" });
       return;
     }
 
-    // 다양한 구분자 허용: 쉼표, 슬래시, ' or ', 공백(연속 아닌 경우) 또는 줄바꿈
-    const parts = raw.split(/\s*,\s*|\s*\/\s*|\s+or\s+|\r?\n|[,;]\s*|\s+/i)
-                     .map(s => s.trim())
-                     .filter(Boolean);
+    // 쉼표, 슬래시, or, 공백, 줄바꿈 등 다양한 구분자 허용
+    const parts = raw
+      .split(/\s*,\s*|\s*\/\s*|\s+or\s+|\r?\n|[,;]\s*|\s+/i)
+      .map(s => s.trim())
+      .filter(Boolean);
 
     if (parts.length === 0) {
-      await interaction.editReply({ content: "유효한 옵션이 없습니다. 쉼표로 구분하여 입력해 주세요." });
+      await interaction.editReply({ content: "유효한 옵션이 없습니다. 쉼표나 공백으로 구분해 주세요." });
       return;
     }
 
-    // 개수 검사
     if (!Number.isInteger(count) || count < 1) count = 1;
     if (count > parts.length) count = parts.length;
 
-    // Fisher–Yates 셔플
-    function shuffle(arr) {
-      const a = arr.slice();
-      for (let i = a.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [a[i], a[j]] = [a[j], a[i]];
-      }
-      return a;
-    }
-
-    const shuffled = shuffle(parts);
+    // 무작위 선택
+    const shuffled = parts.sort(() => Math.random() - 0.5);
     const picks = shuffled.slice(0, count);
 
-    // 결과 메시지
-    let content;
-    if (count === 1) {
-      content = `✅ 선택: **${picks[0]}**\n(총 ${parts.length}개 옵션 중)`;
-    } else {
-      content = `✅ ${count}개 선택: ${picks.map(p => `**${p}**`).join(", ")}\n(총 ${parts.length}개 옵션 중)`;
-    }
+    const content =
+      count === 1
+        ? `✅ 선택: **${picks[0]}**\n(총 ${parts.length}개 옵션 중)`
+        : `✅ ${count}개 선택: ${picks.map(p => `**${p}**`).join(", ")}\n(총 ${parts.length}개 옵션 중)`;
 
     await interaction.editReply({ content });
+
   } catch (err) {
     console.error("골라 처리 중 오류:", err);
     try {
-      if (interaction.deferred || interaction.replied) await interaction.editReply("⚠️ '골라' 처리 중 오류가 발생했습니다.");
-      else await interaction.reply({ content: "⚠️ '골라' 처리 중 오류가 발생했습니다.", ephemeral: true });
-    } catch(_) {}
+      if (interaction.deferred || interaction.replied)
+        await interaction.editReply("⚠️ '골라' 처리 중 오류가 발생했습니다.");
+      else
+        await interaction.reply({ content: "⚠️ '골라' 처리 중 오류가 발생했습니다.", ephemeral: true });
+    } catch (_) {}
   }
 }
+
 
 
     // 경마
@@ -679,6 +673,7 @@ client.on("ready", async () => {
 // 로그인
 ////////////////////////////////////////////////////////////////////////////////
 client.login(TOKEN);
+
 
 
 
