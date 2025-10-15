@@ -30,6 +30,15 @@ const SLOT_DEFAULT_BET = 100;
 const TABLE_MIN_BET = 100;
 const RACE_PAYOUT_MULTIPLIER = 5; // 이미 -bet 했을 때 지급할 '총액' 배수 (ex: 5이면 net +4*bet)
 
+//골라 설정 관련
+
+const { Client, GatewayIntentBits, Partials, SlashCommandBuilder, REST, Routes } = require("discord.js");
+const sqlite3 = require("sqlite3");
+const { open } = require("sqlite");
+const cron = require("node-cron");
+const process = require("process");
+const express = require("express");
+
 ////////////////////////////////////////////////////////////////////////////////
 // DB 초기화
 ////////////////////////////////////////////////////////////////////////////////
@@ -678,6 +687,7 @@ client.on("ready", async () => {
 // 로그인
 ////////////////////////////////////////////////////////////////////////////////
 client.login(TOKEN);
+
 
 
 
