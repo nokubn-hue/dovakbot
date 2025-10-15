@@ -571,16 +571,6 @@ client.on("interactionCreate", async (interaction) => {
       return;
     }
 
-
-      const race = activeRaces.get(channelId);
-      if (race.bettors.has(uid)) return interaction.editReply("이미 베팅했습니다");
-
-      // 차감 후 저장
-      await changeBalance(uid, -bet, "race_lock");
-      race.bettors.set(uid, { horseIndex: horseNum - 1, bet });
-      return interaction.editReply(`경마 베팅 완료! 배팅 ${bet}포인트, 선택 말: ${horses[horseNum - 1].name}`);
-    }
-
   } catch (err) {
     console.error("interaction 처리 중 오류:", err);
     try {
@@ -588,7 +578,6 @@ client.on("interactionCreate", async (interaction) => {
       else await interaction.reply({ content: "명령 처리 중 오류가 발생했습니다.", ephemeral: true });
     } catch (e) { /* 무시 */ }
   }
-});
 
 // -------------------
 // 슬래시 명령 등록
@@ -649,6 +638,7 @@ client.on("ready", async () => {
 // 로그인
 // -------------------
 client.login(TOKEN);
+
 
 
 
