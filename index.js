@@ -4,7 +4,6 @@ import { open } from "sqlite";
 import cron from "node-cron";
 import express from "express";
 import process from "process";
-import { Client, GatewayIntentBits, Partials, SlashCommandBuilder, REST, Routes } from "discord.js";
 
 ////////////////////////////////////////////////////////////////////////////////
 // 간단한 웹서버 (Render 등에서 헬스체크용)
@@ -30,14 +29,29 @@ const SLOT_DEFAULT_BET = 100;
 const TABLE_MIN_BET = 100;
 const RACE_PAYOUT_MULTIPLIER = 5; // 이미 -bet 했을 때 지급할 '총액' 배수 (ex: 5이면 net +4*bet)
 
-//골라 설정 관련
-
-const { Client, GatewayIntentBits, Partials, SlashCommandBuilder, REST, Routes } = require("discord.js");
+// ------------------- Node.js + Discord.js CommonJS 예제 -------------------
+const { Client, GatewayIntentBits, Partials, REST, Routes, SlashCommandBuilder } = require("discord.js");
 const sqlite3 = require("sqlite3");
 const { open } = require("sqlite");
 const cron = require("node-cron");
-const process = require("process");
 const express = require("express");
+const process = require("process");
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+app.get("/", (req, res) => res.send("봇 실행 중"));
+app.listen(PORT, () => console.log(`웹서버 포트 ${PORT}에서 실행 중`));
+
+// 환경 변수
+const TOKEN = process.env.DISCORD_TOKEN;
+const CLIENT_ID = process.env.CLIENT_ID || null;
+const GUILD_ID = process.env.GUILD_ID || null;
+
+// Discord 클라이언트
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+  partials: [Partials.Channel],
+});
 
 ////////////////////////////////////////////////////////////////////////////////
 // DB 초기화
@@ -394,64 +408,86 @@ client.on("interactionCreate", async (interaction) => {
       return;
     }
 
-// -------------------
-// /골라 명령
-// -------------------
-// 이벤트 내부
-if (cmd === "골라") {
-  try {
-    await interaction.deferReply();
+// ------------------- 골라 기능 -------------------
+client.on("interactionCreate", async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
+  const cmd = interaction.commandName;
 
-    const raw = interaction.options.getString("option")?.trim();
-    let count = interaction.options.getInteger("count") || 1;
-
-    if (!raw) {
-      await interaction.editReply("옵션을 입력하세요. (예: a,b,c 또는 a b c)");
-      return;
-    }
-
-    // 쉼표, 공백, or, / 등 다양한 구분자
-    const options = raw
-      .split(/\s*,\s*|\s*\/\s*|\s+or\s+|\r?\n|\s+/i)
-      .map(s => s.trim())
-      .filter(Boolean);
-
-    if (options.length === 0) {
-      await interaction.editReply("유효한 옵션이 없습니다. 쉼표나 공백으로 구분해 주세요.");
-      return;
-    }
-
-    if (!Number.isInteger(count) || count < 1) count = 1;
-    if (count > options.length) count = options.length;
-
-    // 랜덤 선택 (Fisher–Yates)
-    const shuffled = options.slice();
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-
-    const picks = shuffled.slice(0, count);
-
-    const resultMessage =
-      count === 1
-        ? `✅ 선택: **${picks[0]}**\n(총 ${options.length}개 옵션 중)`
-        : `✅ ${count}개 선택: ${picks.map(p => `**${p}**`).join(", ")}\n(총 ${options.length}개 옵션 중)`;
-
-    await interaction.editReply(resultMessage);
-
-  } catch (err) {
-    console.error("골라 처리 중 오류:", err);
+  if (cmd === "골라") {
     try {
-      if (interaction.deferred || interaction.replied)
-        await interaction.editReply("⚠️ '골라' 처리 중 오류가 발생했습니다.");
-      else
-        await interaction.reply({ content: "⚠️ '골라' 처리 중 오류가 발생했습니다.", ephemeral: true });
-    } catch (_) {}
+      await interaction.deferReply();
+      const raw = (interaction.options.getString("option") || "").trim();
+      let count = Number(interaction.options.getInteger("count") || 1);
+
+      if (!raw) {
+        await interaction.editReply("옵션을 입력하세요. (예: a,b,c 또는 a b c)");
+        return;
+      }
+
+      const parts = raw
+        .split(/\s*,\s*|\s*\/\s*|\s+or\s+|\r?\n|[,;]\s*|\s+/i)
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      if (parts.length === 0) {
+        await interaction.editReply("유효한 옵션이 없습니다. 쉼표나 공백으로 구분해 주세요.");
+        return;
+      }
+
+      if (!Number.isInteger(count) || count < 1) count = 1;
+      if (count > parts.length) count = parts.length;
+
+      // 무작위 선택
+      const shuffled = parts.sort(() => Math.random() - 0.5);
+      const picks = shuffled.slice(0, count);
+
+      const content =
+        count === 1
+          ? `✅ 선택: **${picks[0]}**\n(총 ${parts.length}개 옵션 중)`
+          : `✅ ${count}개 선택: ${picks.map(p => `**${p}**`).join(", ")}\n(총 ${parts.length}개 옵션 중)`;
+
+      await interaction.editReply(content);
+    } catch (err) {
+      console.error("골라 처리 중 오류:", err);
+      try {
+        if (interaction.deferred || interaction.replied)
+          await interaction.editReply("⚠️ '골라' 처리 중 오류가 발생했습니다.");
+        else
+          await interaction.reply({ content: "⚠️ '골라' 처리 중 오류가 발생했습니다.", ephemeral: true });
+      } catch (_) {}
+    }
+  }
+});
+
+// ------------------- 슬래시 명령 등록 예제 -------------------
+const commands = [
+  new SlashCommandBuilder()
+    .setName("골라")
+    .setDescription("옵션 중에서 무작위로 골라줍니다.")
+    .addStringOption(o => o.setName("option").setDescription("예: 사과,바나나,귤").setRequired(true))
+    .addIntegerOption(o => o.setName("count").setDescription("한 번에 뽑을 개수").setRequired(false))
+].map(cmd => cmd.toJSON());
+
+async function registerCommands() {
+  if (!CLIENT_ID || !TOKEN) return;
+  const rest = new REST({ version: "10" }).setToken(TOKEN);
+  try {
+    if (GUILD_ID)
+      await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
+    else
+      await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+    console.log("슬래시 명령 등록 완료");
+  } catch (e) {
+    console.error("명령 등록 실패", e);
   }
 }
 
+client.once("ready", async () => {
+  console.log(`Logged in as ${client.user.tag}`);
+  await registerCommands();
+});
 
+client.login(TOKEN);
 
     // 경마
   const horses = [
@@ -687,6 +723,7 @@ client.on("ready", async () => {
 // 로그인
 ////////////////////////////////////////////////////////////////////////////////
 client.login(TOKEN);
+
 
 
 
