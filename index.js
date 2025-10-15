@@ -242,16 +242,15 @@ new SlashCommandBuilder()
   .setName("골라")
   .setDescription("쉼표(,) 또는 공백/슬래시로 구분된 옵션 중 무작위 선택")
   .addStringOption(o =>
-    o.setName("option") // 반드시 "option"
+    o.setName("option")
      .setDescription("예: 사과,바나나,귤 또는 '사과 바나나 귤'")
      .setRequired(true)
   )
   .addIntegerOption(o =>
-    o.setName("count") // 반드시 "count"
+    o.setName("count")
      .setDescription("한 번에 뽑을 개수 (기본 1)")
      .setRequired(false)
-  )
-,
+  ),
   new SlashCommandBuilder().setName("관리자지급").setDescription("관리자 포인트 조정")
     .addUserOption(o => o.setName("대상").setDescription("대상 유저").setRequired(true))
     .addIntegerOption(o => o.setName("금액").setDescription("양수=지급, 음수=회수").setRequired(true)),
@@ -392,8 +391,6 @@ client.on("interactionCreate", async (interaction) => {
 if (cmd === "골라") {
   try {
     await interaction.deferReply();
-
-    // 옵션 문자열과 선택 개수 가져오기
     const raw = interaction.options.getString("option")?.trim();
     let count = interaction.options.getInteger("count") || 1;
 
@@ -402,7 +399,6 @@ if (cmd === "골라") {
       return;
     }
 
-    // 다양한 구분자 처리: 쉼표, 슬래시, 'or', 공백, 줄바꿈
     const options = raw
       .split(/\s*,\s*|\s*\/\s*|\s+or\s+|\r?\n|\s+/i)
       .map(s => s.trim())
@@ -416,7 +412,7 @@ if (cmd === "골라") {
     if (!Number.isInteger(count) || count < 1) count = 1;
     if (count > options.length) count = options.length;
 
-    // Fisher-Yates 셔플로 랜덤 선택
+    // 랜덤 선택
     const shuffled = options.slice();
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -435,15 +431,13 @@ if (cmd === "골라") {
   } catch (err) {
     console.error("골라 처리 중 오류:", err);
     try {
-      if (interaction.deferred || interaction.replied) {
+      if (interaction.deferred || interaction.replied)
         await interaction.editReply("⚠️ '골라' 처리 중 오류가 발생했습니다.");
-      } else {
+      else
         await interaction.reply({ content: "⚠️ '골라' 처리 중 오류가 발생했습니다.", ephemeral: true });
-      }
     } catch (_) {}
   }
 }
-
 
 
 
@@ -681,6 +675,7 @@ client.on("ready", async () => {
 // 로그인
 ////////////////////////////////////////////////////////////////////////////////
 client.login(TOKEN);
+
 
 
 
