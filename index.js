@@ -388,9 +388,11 @@ client.on("interactionCreate", async (interaction) => {
 // -------------------
 // /골라 명령
 // -------------------
+// 이벤트 내부
 if (cmd === "골라") {
   try {
     await interaction.deferReply();
+
     const raw = interaction.options.getString("option")?.trim();
     let count = interaction.options.getInteger("count") || 1;
 
@@ -399,6 +401,7 @@ if (cmd === "골라") {
       return;
     }
 
+    // 쉼표, 공백, or, / 등 다양한 구분자
     const options = raw
       .split(/\s*,\s*|\s*\/\s*|\s+or\s+|\r?\n|\s+/i)
       .map(s => s.trim())
@@ -412,7 +415,7 @@ if (cmd === "골라") {
     if (!Number.isInteger(count) || count < 1) count = 1;
     if (count > options.length) count = options.length;
 
-    // 랜덤 선택
+    // 랜덤 선택 (Fisher–Yates)
     const shuffled = options.slice();
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -675,6 +678,7 @@ client.on("ready", async () => {
 // 로그인
 ////////////////////////////////////////////////////////////////////////////////
 client.login(TOKEN);
+
 
 
 
