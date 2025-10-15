@@ -375,6 +375,21 @@ client.on("interactionCreate", async (interaction) => {
 // 골라 (선택지 중 무작위 추첨)
 // -------------------
 if (cmd === "골라") {
+ 
+  new SlashCommandBuilder()
+  .setName("골라")
+  .setDescription("쉼표(,) 또는 공백/슬래시로 구분된 옵션들 중에서 무작위로 골라줍니다.")
+  .addStringOption(o =>
+    o.setName("option") 
+     .setDescription("예: 사과,바나나,귤 또는 '사과 바나나 귤'")
+     .setRequired(true)
+  )
+  .addIntegerOption(o =>
+    o.setName("count") 
+     .setDescription("한 번에 뽑을 개수 (기본 1)")
+     .setRequired(false)
+  ),
+
   try {
     await interaction.deferReply(); // 잠시 대기
     const raw = (interaction.options.getString("옵션") || "").trim();
@@ -664,5 +679,6 @@ client.on("ready", async () => {
 // 로그인
 ////////////////////////////////////////////////////////////////////////////////
 client.login(TOKEN);
+
 
 
