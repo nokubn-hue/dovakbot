@@ -240,17 +240,17 @@ import { SlashCommandBuilder } from "discord.js";
 
 new SlashCommandBuilder()
   .setName("골라")
-  .setDescription("쉼표(,) 또는 공백/슬래시로 구분된 옵션들 중에서 무작위로 골라줍니다.")
+  .setDescription("쉼표(,) 또는 공백/슬래시로 구분된 옵션 중 무작위 선택")
   .addStringOption(o =>
-    o.setName("option")
+    o.setName("option") // 반드시 "option"
      .setDescription("예: 사과,바나나,귤 또는 '사과 바나나 귤'")
      .setRequired(true)
   )
   .addIntegerOption(o =>
-    o.setName("count")
+    o.setName("count") // 반드시 "count"
      .setDescription("한 번에 뽑을 개수 (기본 1)")
      .setRequired(false)
-  );
+  )
 ,
   new SlashCommandBuilder().setName("관리자지급").setDescription("관리자 포인트 조정")
     .addUserOption(o => o.setName("대상").setDescription("대상 유저").setRequired(true))
@@ -681,6 +681,7 @@ client.on("ready", async () => {
 // 로그인
 ////////////////////////////////////////////////////////////////////////////////
 client.login(TOKEN);
+
 
 
 
