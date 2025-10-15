@@ -387,55 +387,63 @@ client.on("interactionCreate", async (interaction) => {
     }
 
 // -------------------
-// 골라 (선택지 중 무작위 추첨)
+// /골라 명령
 // -------------------
 if (cmd === "골라") {
   try {
     await interaction.deferReply();
 
-    const raw = (interaction.options.getString("option") || "").trim();
-    let count = Number(interaction.options.getInteger("count") || 1);
+    // 옵션 문자열과 선택 개수 가져오기
+    const raw = interaction.options.getString("option")?.trim();
+    let count = interaction.options.getInteger("count") || 1;
 
     if (!raw) {
-      await interaction.editReply({ content: "옵션을 입력하세요. (예: a,b,c 또는 a b c)" });
+      await interaction.editReply("옵션을 입력하세요. (예: a,b,c 또는 a b c)");
       return;
     }
 
-    // 쉼표, 슬래시, or, 공백, 줄바꿈 등 다양한 구분자 허용
-    const parts = raw
-      .split(/\s*,\s*|\s*\/\s*|\s+or\s+|\r?\n|[,;]\s*|\s+/i)
+    // 다양한 구분자 처리: 쉼표, 슬래시, 'or', 공백, 줄바꿈
+    const options = raw
+      .split(/\s*,\s*|\s*\/\s*|\s+or\s+|\r?\n|\s+/i)
       .map(s => s.trim())
       .filter(Boolean);
 
-    if (parts.length === 0) {
-      await interaction.editReply({ content: "유효한 옵션이 없습니다. 쉼표나 공백으로 구분해 주세요." });
+    if (options.length === 0) {
+      await interaction.editReply("유효한 옵션이 없습니다. 쉼표나 공백으로 구분해 주세요.");
       return;
     }
 
     if (!Number.isInteger(count) || count < 1) count = 1;
-    if (count > parts.length) count = parts.length;
+    if (count > options.length) count = options.length;
 
-    // 무작위 선택
-    const shuffled = parts.sort(() => Math.random() - 0.5);
+    // Fisher-Yates 셔플로 랜덤 선택
+    const shuffled = options.slice();
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
     const picks = shuffled.slice(0, count);
 
-    const content =
+    const resultMessage =
       count === 1
-        ? `✅ 선택: **${picks[0]}**\n(총 ${parts.length}개 옵션 중)`
-        : `✅ ${count}개 선택: ${picks.map(p => `**${p}**`).join(", ")}\n(총 ${parts.length}개 옵션 중)`;
+        ? `✅ 선택: **${picks[0]}**\n(총 ${options.length}개 옵션 중)`
+        : `✅ ${count}개 선택: ${picks.map(p => `**${p}**`).join(", ")}\n(총 ${options.length}개 옵션 중)`;
 
-    await interaction.editReply({ content });
+    await interaction.editReply(resultMessage);
 
   } catch (err) {
     console.error("골라 처리 중 오류:", err);
     try {
-      if (interaction.deferred || interaction.replied)
+      if (interaction.deferred || interaction.replied) {
         await interaction.editReply("⚠️ '골라' 처리 중 오류가 발생했습니다.");
-      else
+      } else {
         await interaction.reply({ content: "⚠️ '골라' 처리 중 오류가 발생했습니다.", ephemeral: true });
+      }
     } catch (_) {}
   }
 }
+
 
 
 
@@ -673,6 +681,7 @@ client.on("ready", async () => {
 // 로그인
 ////////////////////////////////////////////////////////////////////////////////
 client.login(TOKEN);
+
 
 
 
