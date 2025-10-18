@@ -29,7 +29,12 @@ import { open } from 'sqlite';
 import cron from 'node-cron';
 import express from 'express';
 import dotenv from 'dotenv';
-import fetch from 'node-fetch';
+setInterval(() => {
+  fetch('https://dovakbot.onrender.com')
+    .then(() => console.log('🔁 Keep-alive ping'))
+    .catch(() => {});
+}, 1000 * 60 * 4);
+
 dotenv.config();
 
 // ----- 환경 변수 -----
@@ -450,3 +455,4 @@ async function loginBot() {
 // ===== 시작 =====
 initDB().then(() => loginBot());
 client.once('ready', ()=>console.log(`🤖 로그인됨: ${client.user.tag}`));
+
