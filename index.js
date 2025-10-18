@@ -1,5 +1,7 @@
 // ===== 안정화 코드: 가장 상단이나 하단에 붙여넣기 =====
 
+
+
 // 1️⃣ 전역 예외 처리
 process.on('uncaughtException', (err) => {
   console.error('💥 Uncaught Exception 발생:', err);
@@ -462,6 +464,13 @@ async function startBaccarat(interaction,bet,side){
 ${result}`);
 }
 
+import express from "express";
+const app = express();
+
+app.get("/", (req, res) => res.send("Bot is running!"));
+app.listen(process.env.PORT || 10000, () => console.log("✅ Web server running"));
+
+
 // ----- 로그인 -----
 client.once('ready', ()=>console.log(`🤖 로그인됨: ${client.user.tag}`));
 initDB().then(()=>client.login(TOKEN));
@@ -474,5 +483,6 @@ process.on('unhandledRejection', (err) => {
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
 });
+
 
 
