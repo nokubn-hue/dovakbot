@@ -9,7 +9,11 @@ dotenv.config();
 // ----- 환경 변수 -----
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
-const GUILD_ID = process.env.GUILD_ID;
+const guilds = process.env.GUILD_IDS?.split(',') || [];
+for (const guildId of guilds) {
+  await rest.put(Routes.applicationGuildCommands(CLIENT_ID, guildId), { body: baseCommands });
+}
+
 const ADMIN_IDS = process.env.ADMIN_USER_IDS?.split(',') || [];
 
 const app = express();
@@ -354,3 +358,4 @@ client.on('interactionCreate', async interaction=>{
 
 client.once('ready',()=>console.log(`🤖 로그인됨: ${client.user.tag}`));
 initDB().then(()=>client.login(TOKEN));
+
