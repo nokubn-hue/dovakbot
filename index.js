@@ -277,8 +277,8 @@ client.on('interactionCreate', async(interaction)=>{
     const now = Date.now();
     if(now-userData.last_claim<86400000) return interaction.reply({content:'⏰ 이미 오늘 받았습니다.', ephemeral:true});
     await db.run('UPDATE users SET last_claim=? WHERE id=?', now, user.id);
-    const newBal = await updateBalance(user.id,500,'기본금 지급');
-    return interaction.reply(`💸 기본금 500원 지급. 현재 잔고: ${newBal}원`);
+    const newBal = await updateBalance(user.id,1000,'기본금 지급');
+    return interaction.reply(`💸 기본금 1000원 지급. 현재 잔고: ${newBal}원`);
   }
 
   if(commandName==='잔고') return interaction.reply(`💰 ${user.username}님의 잔고: ${userData.balance}원`);
@@ -485,3 +485,4 @@ async function loginBot() {
 }
 
 initDB().then(() => loginBot());
+
