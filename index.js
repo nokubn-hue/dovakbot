@@ -1,18 +1,14 @@
-// ===== 안정화 코드: 가장 상단이나 하단에 붙여넣기 =====
+// ===== 안정화 코드: 가장 상단 =====
 
-
-
-// 1️⃣ 전역 예외 처리
+// 전역 예외 처리
 process.on('uncaughtException', (err) => {
   console.error('💥 Uncaught Exception 발생:', err);
 });
-
 process.on('unhandledRejection', (reason, promise) => {
   console.error('💥 Unhandled Rejection 발생:', reason);
 });
 
-// 2️⃣ setInterval, cron, DB 등 async 블록에서 try-catch 적용 예시
-// 예: 경마 startRace 내부
+// 안전한 Interval Wrapper
 async function safeInterval(callback, intervalMs) {
   return setInterval(async () => {
     try {
@@ -23,57 +19,10 @@ async function safeInterval(callback, intervalMs) {
   }, intervalMs);
 }
 
-// 예: cron.schedule 내부
-cron.schedule('0 21 * * *', async () => {
-  try {
-    const today = new Date().toISOString().split('T')[0];
-    const tickets = await db.all('SELECT * FROM lottery_tickets WHERE draw_date = ?', today);
-    if (!tickets.length) return;
-    const winning = Array.from({ length: 6 }, () => Math.floor(Math.random() * 45) + 1);
-    console.log('🎯 오늘의 복권 당첨번호:', winning.join(', '));
-
-    for (const ticket of tickets) {
-      const nums = ticket.numbers.split(',').map(n => parseInt(n.trim()));
-      const matches = nums.filter(n => winning.includes(n)).length;
-      if (matches >= 3) {
-        const reward = matches === 6 ? 100000 : matches === 5 ? 10000 : 1000;
-        await updateBalance(ticket.user_id, reward, `복권 ${matches}개 일치 보상`);
-      }
-    }
-  } catch (err) {
-    console.error('💥 Cron 에러:', err);
-  }
-}, { timezone: 'Asia/Seoul' });
-
-// 3️⃣ DB 호출 전용 wrapper 예시
-async function safeDBRun(query, ...params) {
-  try {
-    return await db.run(query, ...params);
-  } catch (err) {
-    console.error('💥 DB 실행 에러:', err, query, params);
-    throw err;
-  }
-}
-
-async function safeDBGet(query, ...params) {
-  try {
-    return await db.get(query, ...params);
-  } catch (err) {
-    console.error('💥 DB 조회 에러:', err, query, params);
-    throw err;
-  }
-}
-
-async function safeDBAll(query, ...params) {
-  try {
-    return await db.all(query, ...params);
-  } catch (err) {
-    console.error('💥 DB 전체 조회 에러:', err, query, params);
-    throw err;
-  }
-}
-
-import { Client, GatewayIntentBits, Partials, REST, Routes, SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { 
+  Client, GatewayIntentBits, Partials, REST, Routes,
+  SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle 
+} from 'discord.js';
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
 import cron from 'node-cron';
@@ -86,9 +35,10 @@ const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const ADMIN_IDS = process.env.ADMIN_USER_IDS?.split(',') || [];
 
+// ----- Express 서버 -----
 const app = express();
 app.get('/', (_, res) => res.send('봇 실행 중'));
-app.listen(3000, () => console.log('✅ 서버 실행 완료'));
+app.listen(process.env.PORT || 10000, () => console.log('✅ 웹 서버 실행 완료'));
 
 // ----- 클라이언트 초기화 -----
 const client = new Client({
@@ -128,6 +78,32 @@ async function initDB() {
   console.log('✅ 데이터베이스 초기화 완료');
 }
 
+// ----- 안전 DB 함수 -----
+async function safeDBRun(query, ...params) {
+  try {
+    return await db.run(query, ...params);
+  } catch (err) {
+    console.error('💥 DB 실행 에러:', err, query, params);
+    throw err;
+  }
+}
+async function safeDBGet(query, ...params) {
+  try {
+    return await db.get(query, ...params);
+  } catch (err) {
+    console.error('💥 DB 조회 에러:', err, query, params);
+    throw err;
+  }
+}
+async function safeDBAll(query, ...params) {
+  try {
+    return await db.all(query, ...params);
+  } catch (err) {
+    console.error('💥 DB 전체 조회 에러:', err, query, params);
+    throw err;
+  }
+}
+
 // ----- 유틸 함수 -----
 async function getUser(id) {
   let user = await db.get('SELECT * FROM users WHERE id = ?', id);
@@ -155,7 +131,7 @@ async function updateBalance(userId, amount, reason) {
   }
 }
 
-// ----- 공통 명령어 정의 -----
+// ----- 명령어 정의 -----
 const baseCommands = [
   new SlashCommandBuilder().setName('돈줘').setDescription('하루에 한 번 기본금을 받습니다.'),
   new SlashCommandBuilder().setName('잔고').setDescription('현재 잔고를 확인합니다.'),
@@ -177,18 +153,16 @@ const baseCommands = [
     .setDescription('관리자가 유저에게 포인트를 지급합니다.')
     .addUserOption(opt => opt.setName('대상').setDescription('유저 선택').setRequired(true))
     .addIntegerOption(opt => opt.setName('금액').setDescription('지급할 금액').setRequired(true)),
-  new SlashCommandBuilder()
-    .setName('블랙잭')
+  new SlashCommandBuilder().setName('블랙잭')
     .setDescription('블랙잭을 플레이합니다.')
     .addIntegerOption(opt => opt.setName('베팅').setDescription('베팅 금액').setRequired(true)),
-  new SlashCommandBuilder()
-    .setName('바카라')
+  new SlashCommandBuilder().setName('바카라')
     .setDescription('바카라를 플레이합니다.')
     .addIntegerOption(opt => opt.setName('베팅').setDescription('베팅 금액').setRequired(true))
     .addStringOption(opt => opt.setName('선택').setDescription('플레이어 / 뱅커 / 타이').setRequired(true)),
 ];
 
-// ----- 글로벌 명령어 등록 -----
+// ----- 명령어 등록 -----
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 (async () => {
   try {
@@ -207,18 +181,22 @@ function spinSlot() {
 
 // ----- 복권 자동 추첨 -----
 cron.schedule('0 21 * * *', async () => {
-  const today = new Date().toISOString().split('T')[0];
-  const tickets = await db.all('SELECT * FROM lottery_tickets WHERE draw_date = ?', today);
-  if (!tickets.length) return;
-  const winning = Array.from({length:6}, ()=>Math.floor(Math.random()*45)+1);
-  console.log('🎯 오늘의 복권 당첨번호:', winning.join(','));
-  for (const ticket of tickets) {
-    const nums = ticket.numbers.split(',').map(n => parseInt(n.trim()));
-    const matches = nums.filter(n => winning.includes(n)).length;
-    if(matches>=3){
-      const reward = matches===6 ? 100000 : matches===5 ? 10000 : 1000;
-      await updateBalance(ticket.user_id, reward, `복권 ${matches}개 일치 보상`);
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const tickets = await db.all('SELECT * FROM lottery_tickets WHERE draw_date = ?', today);
+    if (!tickets.length) return;
+    const winning = Array.from({length:6}, ()=>Math.floor(Math.random()*45)+1);
+    console.log('🎯 오늘의 복권 당첨번호:', winning.join(','));
+    for (const ticket of tickets) {
+      const nums = ticket.numbers.split(',').map(n => parseInt(n.trim()));
+      const matches = nums.filter(n => winning.includes(n)).length;
+      if (matches >= 3) {
+        const reward = matches===6 ? 10000;
+        await updateBalance(ticket.user_id, reward, `복권 ${matches}개 일치 보상`);
+      }
     }
+  } catch (err) {
+    console.error('💥 Cron 에러:', err);
   }
 }, { timezone:'Asia/Seoul' });
 
@@ -476,13 +454,34 @@ client.once('ready', ()=>console.log(`🤖 로그인됨: ${client.user.tag}`));
 initDB().then(()=>client.login(TOKEN));
 
 
-process.on('unhandledRejection', (err) => {
-  console.error('Unhandled Rejection:', err);
-});
-
+// --- 절대 안꺼지는 설정 ---
 process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
+  console.error('💥 Uncaught Exception:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('💥 Unhandled Rejection:', reason);
 });
 
+// Node 프로세스 유지 루프
+setInterval(() => {}, 60 * 1000);
 
+// Render keep-alive ping
+import fetch from 'node-fetch';
+setInterval(() => {
+  fetch('https://dovakbot.onrender.com')
+    .then(() => console.log('🔁 Keep-alive ping'))
+    .catch(() => {});
+}, 1000 * 60 * 4);
 
+// Discord 로그인 자동 재시도
+async function loginBot() {
+  try {
+    await client.login(TOKEN);
+    console.log(`🤖 로그인 성공: ${client.user.tag}`);
+  } catch (err) {
+    console.error('💥 로그인 실패. 5초 후 재시도:', err);
+    setTimeout(loginBot, 5000);
+  }
+}
+
+initDB().then(() => loginBot());
