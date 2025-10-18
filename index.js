@@ -218,32 +218,6 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
   }
 })();
 
-// ----- 슬롯머신 -----
-function spinSlot() {
-  const symbols = ['🍒','🍋','🍇','💎','7️⃣'];
-  return [0,1,2].map(() => symbols[Math.floor(Math.random() * symbols.length)]);
-}
-
-// ----- 복권 자동 추첨 -----
-cron.schedule('0 21 * * *', async () => {
-  try {
-    const today = new Date().toISOString().split('T')[0];
-    const tickets = await db.all('SELECT * FROM lottery_tickets WHERE draw_date = ?', today);
-    if (!tickets.length) return;
-    const winning = Array.from({length:6}, ()=>Math.floor(Math.random()*45)+1);
-    console.log('🎯 오늘의 복권 당첨번호:', winning.join(','));
-    for (const ticket of tickets) {
-      const nums = ticket.numbers.split(',').map(n => parseInt(n.trim()));
-      const matches = nums.filter(n => winning.includes(n)).length;
-      if (matches >= 3) {
-        const reward = matches===6 ? 10000;
-        await updateBalance(ticket.user_id, reward, `복권 ${matches}개 일치 보상`);
-      }
-    }
-  } catch (err) {
-    console.error('💥 Cron 에러:', err);
-  }
-}, { timezone:'Asia/Seoul' });
 
 // ----- 게임 공용 -----
 const RACE_PAYOUT_MULTIPLIER = 5;
@@ -515,4 +489,5 @@ setInterval(() => {}, 1000 * 60);
 // ===== 실행 =====
 client.once('ready', () => console.log(`✅ 로그인됨: ${client.user.tag}`));
 initDB().then(() => loginBot());
+
 
