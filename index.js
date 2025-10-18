@@ -9,16 +9,15 @@ dotenv.config();
 // ----- 환경 변수 -----
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
-const GUILD_ID = process.env.GUILD_ID;
 const ADMIN_IDS = process.env.ADMIN_USER_IDS?.split(',') || [];
 
 const app = express();
 app.get('/', (_, res) => res.send('봇 실행 중'));
-app.listen(3000, () => console.log('✅ 서버가 실행되었습니다.'));
+app.listen(3000, () => console.log('✅ 서버 실행됨'));
 
 // ----- 클라이언트 초기화 -----
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
+  intents: [GatewayIntentBits.Guilds],
   partials: [Partials.Message, Partials.Channel],
 });
 
@@ -26,10 +25,7 @@ let db;
 
 // ----- DB 초기화 -----
 async function initDB() {
-  db = await open({
-    filename: './data.sqlite',
-    driver: sqlite3.Database,
-  });
+  db = await open({ filename: './data.sqlite', driver: sqlite3.Database });
 
   await db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -84,11 +80,109 @@ async function updateBalance(userId, amount, reason) {
   }
 }
 
-// ----- 슬롯머신 -----
+// ----- 기본 명령어 정의 -----
+const commands = [
+  new SlashCommandBuilder().setName('돈줘').setDescription('하루에 한 번 기본금을 받습니다.'),
+  new SlashCommandBuilder().setName('잔고').setDescription('현재 잔고를 확인합니다.'),
+  new SlashCommandBuilder().setName('골라')
+    .setDescription('여러 옵션 중 하나를 무작위로 선택합니다.')
+    .addStringOption(opt => opt.setName('옵션들').setDescription('쉼표로 구분된 옵션들').setRequired(true)),
+  new SlashCommandBuilder().setName('슬롯')
+    .setDescription('슬롯머신을 돌립니다.')
+    .addIntegerOption(opt => opt.setName('베팅').setDescription('베팅 금액').setRequired(false)),
+  new SlashCommandBuilder().setName('복권구매')
+    .setDescription('복권을 구매합니다.')
+    .addStringOption(opt => opt.setName('번호').setDescription('1~45 중 6개 번호를 쉼표로 입력').setRequired(true)),
+  new SlashCommandBuilder().setName('복권상태').setDescription('오늘의 복권 구매 상태를 확인합니다.'),
+  new SlashCommandBuilder().setName('경마')
+    .setDescription('랜덤 경마를 진행합니다.')
+    .addIntegerOption(opt => opt.setName('베팅').setDescription('베팅 금액').setRequired(true))
+    .addIntegerOption(opt => opt.setName('말번호').setDescription('1~7 중 하나 선택').setRequired(true)),
+  new SlashCommandBuilder().setName('관리자지급')
+    .setDescription('관리자가 유저에게 포인트를 지급합니다.')
+    .addUserOption(opt => opt.setName('대상').setDescription('유저 선택').setRequired(true))
+    .addIntegerOption(opt => opt.setName('금액').setDescription('지급할 금액').setRequired(true)),
+  new SlashCommandBuilder().setName('블랙잭')
+    .setDescription('블랙잭을 플레이합니다.')
+    .addIntegerOption(opt => opt.setName('베팅').setDescription('베팅 금액').setRequired(true)),
+  new SlashCommandBuilder().setName('바카라')
+    .setDescription('바카라를 플레이합니다.')
+    .addIntegerOption(opt => opt.setName('베팅').setDescription('베팅 금액').setRequired(true))
+    .addStringOption(opt => opt.setName('선택').setDescription('플레이어 / 뱅커 / 타이').setRequired(true))
+];
+
+// ----- 전역 명령어 등록 -----
+const rest = new REST({ version: '10' }).setToken(TOKEN);
+(async () => {
+  try {
+    await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+    console.log('✅ 전역 명령어 등록 완료');
+  } catch (err) {
+    console.error('명령어 등록 실패:', err);
+  }
+})();
+
+// ----- 슬롯, 복권, 블랙잭, 바카라, 경마 기능 그대로 유지 -----
+
+// 슬롯
 function spinSlot() {
   const symbols = ['🍒', '🍋', '🍇', '💎', '7️⃣'];
   return [0, 1, 2].map(() => symbols[Math.floor(Math.random() * symbols.length)]);
 }
+
+// 복권 자동 추첨
+cron.schedule('0 21 * * *', async () => {
+  const today = new Date().toISOString().split('T')[0];
+  const tickets = await db.all('SELECT * FROM lottery_tickets WHERE draw_date = ?', today);
+  if (!tickets.length) return;
+  const winning = Array.from({ length: 6 }, () => Math.floor(Math.random() * 45) + 1);
+  console.log('🎯 오늘의 복권 당첨번호:', winning.join(', '));
+  for (const ticket of tickets) {
+    const nums = ticket.numbers.split(',').map(n => parseInt(n.trim()));
+    const matches = nums.filter(n => winning.includes(n)).length;
+    if (matches >= 3) {
+      const reward = matches === 6 ? 100000 : matches === 5 ? 10000 : 1000;
+      await updateBalance(ticket.user_id, reward, `복권 ${matches}개 일치 보상`);
+    }
+  }
+}, { timezone: 'Asia/Seoul' });
+
+// ======== 경마 개선, 블랙잭, 바카라 함수 그대로 복사 ========
+// ... [위 코드에서 작성한 startRace, startBlackjack, startBaccarat 등 동일하게 유지] ...
+
+// ----- interactionCreate -----
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
+
+  const { commandName, user, options } = interaction;
+  const userData = await getUser(user.id);
+
+  switch (commandName) {
+    case '돈줘': {
+      const now = Date.now();
+      if (now - userData.last_claim < 86400000)
+        return interaction.reply({ content: '⏰ 이미 오늘 받았습니다.', ephemeral: true });
+      await db.run('UPDATE users SET last_claim = ? WHERE id = ?', now, user.id);
+      const newBal = await updateBalance(user.id, 500, '기본금 지급');
+      return interaction.reply(`💸 500원 지급! 잔고: ${newBal}원`);
+    }
+    case '잔고': return interaction.reply(`💰 ${user.username}님의 잔고: ${userData.balance}원`);
+    case '골라': {
+      const opts = options.getString('옵션들').split(',').map(x => x.trim()).filter(Boolean);
+      if (opts.length < 2) return interaction.reply('⚠️ 2개 이상 입력하세요.');
+      return interaction.reply(`🎯 선택: **${opts[Math.floor(Math.random() * opts.length)]}**`);
+    }
+    case '슬롯': {
+      const bet = options.getInteger('베팅') ?? 100;
+      if (bet <= 0 || bet > userData.balance) return interaction.reply('❌ 베팅 금액 오류');
+      await updateBalance(user.id, -bet, '슬롯 베팅');
+      const result = spinSlot();
+      let reward = 0;
+      if (new Set(result).size === 1) reward = bet * 10;
+      else if (new Set(result).size === 2) reward = bet * 2;
+      if (reward > 0) await updateBalance(user.id, reward, '슬롯 당첨');
+      return interaction.reply(`🎰 ${result.join(' | ')}\n${reward > 0 ? `당첨! +${reward}` : '꽝...'}\n💰 잔고: ${(await getUser(user.id)).balance}`);
+    }
 
 // ----- 경마 시스템 -----
 const horses = [
@@ -399,10 +493,6 @@ client.on('interactionCreate', async interaction=>{
   }
 });
 
-client.once('ready',()=>console.log(`🤖 로그인됨: ${client.user.tag}`));
-initDB().then(()=>client.login(TOKEN));
 
-
-// ----- 클라이언트 시작 -----
 client.once('ready', () => console.log(`🤖 로그인됨: ${client.user.tag}`));
 initDB().then(() => client.login(TOKEN));
