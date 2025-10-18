@@ -1,3 +1,4 @@
+
 import { Client, GatewayIntentBits, Partials, REST, Routes, SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
@@ -17,11 +18,7 @@ app.listen(3000, () => console.log('✅ 서버 실행 완료'));
 
 // ----- 클라이언트 초기화 -----
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
   partials: [Partials.Message, Partials.Channel],
 });
 
@@ -71,12 +68,10 @@ async function updateBalance(userId, amount, reason) {
   await db.run('BEGIN TRANSACTION');
   try {
     const user = await getUser(userId);
-    let newBalance = Math.max(0, user.balance + amount);
+    const newBalance = Math.max(0, user.balance + amount);
     await db.run('UPDATE users SET balance = ? WHERE id = ?', newBalance, userId);
-    await db.run(
-      'INSERT INTO transactions (user_id, amount, reason, timestamp) VALUES (?, ?, ?, ?)',
-      userId, amount, reason, Date.now()
-    );
+    await db.run('INSERT INTO transactions (user_id, amount, reason, timestamp) VALUES (?, ?, ?, ?)',
+      userId, amount, reason, Date.now());
     await db.run('COMMIT');
     return newBalance;
   } catch (err) {
@@ -132,7 +127,7 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
 
 // ----- 슬롯머신 -----
 function spinSlot() {
-  const symbols = ['🍒', '🍋', '🍇', '💎', '7️⃣'];
+  const symbols = ['🍒','🍋','🍇','💎','7️⃣'];
   return [0,1,2].map(() => symbols[Math.floor(Math.random() * symbols.length)]);
 }
 
@@ -142,22 +137,26 @@ cron.schedule('0 21 * * *', async () => {
   const tickets = await db.all('SELECT * FROM lottery_tickets WHERE draw_date = ?', today);
   if (!tickets.length) return;
   const winning = Array.from({length:6}, ()=>Math.floor(Math.random()*45)+1);
-  console.log('🎯 오늘의 복권 당첨번호:', winning.join(', '));
+  console.log('🎯 오늘의 복권 당첨번호:', winning.join(','));
   for (const ticket of tickets) {
-    const nums = ticket.numbers.split(',').map(n=>parseInt(n.trim()));
-    const matches = nums.filter(n=>winning.includes(n)).length;
+    const nums = ticket.numbers.split(',').map(n => parseInt(n.trim()));
+    const matches = nums.filter(n => winning.includes(n)).length;
     if(matches>=3){
       const reward = matches===6 ? 100000 : matches===5 ? 10000 : 1000;
       await updateBalance(ticket.user_id, reward, `복권 ${matches}개 일치 보상`);
     }
   }
-}, {timezone:'Asia/Seoul'});
+}, { timezone:'Asia/Seoul' });
 
-// ----- 경마/블랙잭/바카라 공통 -----
+// ----- 게임 공용 -----
 const RACE_PAYOUT_MULTIPLIER = 5;
 const horses = [
-  { name:"썬더", emoji:"🐎" }, { name:"스피드", emoji:"🐎" }, { name:"라이트닝", emoji:"🐎" },
-  { name:"블레이드", emoji:"🐎" }, { name:"토네이도", emoji:"🐎" }, { name:"스타", emoji:"🐎" },
+  { name:"썬더", emoji:"🐎" },
+  { name:"스피드", emoji:"🐎" },
+  { name:"라이트닝", emoji:"🐎" },
+  { name:"블레이드", emoji:"🐎" },
+  { name:"토네이도", emoji:"🐎" },
+  { name:"스타", emoji:"🐎" },
   { name:"썬샤인", emoji:"🐎" }
 ];
 const activeRaces = new Map();
@@ -185,43 +184,31 @@ function createDeck(){
 }
 
 // ----- 경마 -----
-const horses = [
-  { name:"썬더", emoji:"🐎" },
-  { name:"스피드", emoji:"🐎" },
-  { name:"라이트닝", emoji:"🐎" },
-  { name:"블레이드", emoji:"🐎" },
-  { name:"토네이도", emoji:"🐎" },
-  { name:"스타", emoji:"🐎" },
-  { name:"썬샤인", emoji:"🐎" }
-];
 async function startRace(channel, bettors) {
   let positions = Array(horses.length).fill(0);
   const trackLength = 30;
   const msg = await channel.send('🏁 경주 시작! 잠시만 기다려주세요...');
   return new Promise(resolve => {
-    let finished = false;
-    const interval = setInterval(async () => {
+    let finished=false;
+    const interval=setInterval(async ()=>{
       for(let i=0;i<horses.length;i++){
         positions[i]+=Math.floor(Math.random()*3);
         if(positions[i]>trackLength) positions[i]=trackLength;
       }
-      const raceMsg = positions.map((p,i)=>`${horses[i].emoji} ${horses[i].name.padEnd(8," ")} |${"·".repeat(p)}${" ".repeat(trackLength-p)}🏁`).join('\n');
-      try { await msg.edit(`🏇 경주 중...\n\n${raceMsg}`); } catch {}
-      const winnerIdx = positions.findIndex(p => p>=trackLength);
-      if(winnerIdx !== -1){
-        finished = true;
+      const raceMsg=positions.map((p,i)=>`${horses[i].emoji} ${horses[i].name.padEnd(8," ")} |${"·".repeat(p)}${" ".repeat(trackLength-p)}🏁`).join('\n');
+      try{ await msg.edit(`🏇 경주 중...\n\n${raceMsg}`); }catch{}
+      const winnerIdx=positions.findIndex(p=>p>=trackLength);
+      if(winnerIdx!==-1){
+        finished=true;
         clearInterval(interval);
         for(const [uid,b] of bettors.entries()){
-          if(b.horseIndex===winnerIdx){
-            const payout = Number(b.bet)*5;
-            await updateBalance(uid,payout,'경마 승리');
-          }
+          if(b.horseIndex===winnerIdx) await updateBalance(uid, Number(b.bet)*5, '경마 승리');
         }
         await channel.send(`🏆 경주 종료! 우승 말: ${horses[winnerIdx].name} ${horses[winnerIdx].emoji}`);
         resolve(winnerIdx);
       }
     },1000);
-    setTimeout(()=>{ if(!finished){ clearInterval(interval); msg.reply('⏱ 경주 시간초과 종료'); resolve(null);} },40000);
+    setTimeout(()=>{ if(!finished){ clearInterval(interval); msg.reply('⏱ 경주 시간초과 종료'); resolve(null); } },40000);
   });
 }
 
@@ -406,3 +393,5 @@ ${result}`);
 // ----- 로그인 -----
 client.once('ready', ()=>console.log(`🤖 로그인됨: ${client.user.tag}`));
 initDB().then(()=>client.login(TOKEN));
+
+
