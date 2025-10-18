@@ -214,8 +214,6 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
-client.once('ready', () => console.log(`🤖 로그인됨: ${client.user.tag}`));
-initDB().then(() => client.login(TOKEN));
 
 // ======== 블랙잭 & 바카라 & 개선된 경마 ========
 
@@ -497,3 +495,5 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
+client.once('ready', () => console.log(`🤖 로그인됨: ${client.user.tag}`));
+initDB().then(() => client.login(TOKEN));
