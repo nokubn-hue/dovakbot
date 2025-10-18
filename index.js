@@ -1,3 +1,75 @@
+// ===== 안정화 코드: 가장 상단이나 하단에 붙여넣기 =====
+
+// 1️⃣ 전역 예외 처리
+process.on('uncaughtException', (err) => {
+  console.error('💥 Uncaught Exception 발생:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('💥 Unhandled Rejection 발생:', reason);
+});
+
+// 2️⃣ setInterval, cron, DB 등 async 블록에서 try-catch 적용 예시
+// 예: 경마 startRace 내부
+async function safeInterval(callback, intervalMs) {
+  return setInterval(async () => {
+    try {
+      await callback();
+    } catch (err) {
+      console.error('💥 Interval 에러:', err);
+    }
+  }, intervalMs);
+}
+
+// 예: cron.schedule 내부
+cron.schedule('0 21 * * *', async () => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const tickets = await db.all('SELECT * FROM lottery_tickets WHERE draw_date = ?', today);
+    if (!tickets.length) return;
+    const winning = Array.from({ length: 6 }, () => Math.floor(Math.random() * 45) + 1);
+    console.log('🎯 오늘의 복권 당첨번호:', winning.join(', '));
+
+    for (const ticket of tickets) {
+      const nums = ticket.numbers.split(',').map(n => parseInt(n.trim()));
+      const matches = nums.filter(n => winning.includes(n)).length;
+      if (matches >= 3) {
+        const reward = matches === 6 ? 100000 : matches === 5 ? 10000 : 1000;
+        await updateBalance(ticket.user_id, reward, `복권 ${matches}개 일치 보상`);
+      }
+    }
+  } catch (err) {
+    console.error('💥 Cron 에러:', err);
+  }
+}, { timezone: 'Asia/Seoul' });
+
+// 3️⃣ DB 호출 전용 wrapper 예시
+async function safeDBRun(query, ...params) {
+  try {
+    return await db.run(query, ...params);
+  } catch (err) {
+    console.error('💥 DB 실행 에러:', err, query, params);
+    throw err;
+  }
+}
+
+async function safeDBGet(query, ...params) {
+  try {
+    return await db.get(query, ...params);
+  } catch (err) {
+    console.error('💥 DB 조회 에러:', err, query, params);
+    throw err;
+  }
+}
+
+async function safeDBAll(query, ...params) {
+  try {
+    return await db.all(query, ...params);
+  } catch (err) {
+    console.error('💥 DB 전체 조회 에러:', err, query, params);
+    throw err;
+  }
+}
 
 import { Client, GatewayIntentBits, Partials, REST, Routes, SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import sqlite3 from 'sqlite3';
@@ -393,5 +465,6 @@ ${result}`);
 // ----- 로그인 -----
 client.once('ready', ()=>console.log(`🤖 로그인됨: ${client.user.tag}`));
 initDB().then(()=>client.login(TOKEN));
+
 
 
