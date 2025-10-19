@@ -270,7 +270,7 @@ function createDeck() {
 }
 
 // =====  관련 함수 =====
-// 복권 발표용 채널 자동 탐색 함수
+// ===== 복권 발표용 채널 자동 탐색 함수 =====
 async function findLotteryChannel(client) {
   for (const guild of client.guilds.cache.values()) {
     const channel = guild.channels.cache.find(
@@ -283,7 +283,7 @@ async function findLotteryChannel(client) {
   return null;
 }
 
-// 복권 결과 계산 + 발표 함수
+// ===== 복권 결과 계산 + 발표 함수 =====
 export async function drawLotteryAndAnnounce(client, db, updateBalance, manual = false, interaction = null) {
   const today = new Date().toISOString().split('T')[0];
   const tickets = await db.all('SELECT * FROM lottery_tickets WHERE draw_date = ?', today);
@@ -315,17 +315,15 @@ export async function drawLotteryAndAnnounce(client, db, updateBalance, manual =
       await updateBalance(ticket.user_id, reward, `복권 ${matches}개 일치 보상`);
 
       // 서버 닉네임 가져오기
-      let displayName = ticket.user_id; // 기본값: ID
-      try {
-        for (const guild of client.guilds.cache.values()) {
-          const member = await guild.members.fetch(ticket.user_id).catch(() => null);
+      let displayName = ticket.user_id;
+      for (const guild of client.guilds.cache.values()) {
+        try {
+          const member = await guild.members.fetch(ticket.user_id);
           if (member) {
-            displayName = member.displayName;
+            displayName = member.displayName ?? member.user.username;
             break;
           }
-        }
-      } catch (err) {
-        console.warn(`⚠️ 닉네임 조회 실패: ${ticket.user_id}`, err);
+        } catch {}
       }
 
       results.push(`${displayName} ➜ ${matches}개 일치 🎉 (${reward}코인)`);
@@ -349,11 +347,11 @@ export async function drawLotteryAndAnnounce(client, db, updateBalance, manual =
     await channel.send(resultText);
     console.log(`✅ 복권 결과가 ${channel.name} 채널에 전송되었습니다.`);
   } else {
-    console.log('⚠️ 복권 결과를 보낼 채널을 찾을 수 없습니다.');
+    console.warn('⚠️ 복권 결과를 보낼 채널을 찾을 수 없습니다.');
   }
 }
 
-// 매일 오후 9시 자동 발표
+// ===== 매일 오후 9시 자동 발표 =====
 cron.schedule('0 21 * * *', async () => {
   try {
     await drawLotteryAndAnnounce(client, db, updateBalance);
@@ -363,6 +361,21 @@ cron.schedule('0 21 * * *', async () => {
 }, { timezone: 'Asia/Seoul' });
 
 console.log('🕘 매일 오후 9시에 자동 복권 발표 스케줄러 등록 완료');
+
+// ===== /복권결과 명령어 처리 =====
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
+  const { commandName } = interaction;
+
+  if (commandName === '복권결과') {
+    try {
+      await drawLotteryAndAnnounce(interaction.client, db, updateBalance, true, interaction);
+    } catch (err) {
+      console.error('❌ /복권결과 처리 중 오류:', err);
+      if (!interaction.replied) await interaction.reply('⚠️ 복권 결과 발표 중 오류가 발생했습니다.');
+    }
+  }
+});
 
 
 // ===== Discord 인터랙션 처리 =====
@@ -640,6 +653,7 @@ async function loginBot() {
 initDB().then(() => loginBot()).catch((e) => console.error('DB 초기화 실패:', e));
 
 client.once('ready', () => console.log(`🤖 로그인됨: ${client.user.tag}`));
+
 
 
 
