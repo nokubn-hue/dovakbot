@@ -172,7 +172,6 @@ function spinSlot() {
   return [0,1,2].map(() => symbols[Math.floor(Math.random() * symbols.length)]);
 }
 
-import cron from 'node-cron';
 import { ChannelType, SlashCommandBuilder } from 'discord.js';
 
 // 🎯 복권 발표용 채널 자동 탐색 함수
@@ -561,5 +560,6 @@ async function loginBot() {
 // ===== 시작 =====
 initDB().then(() => loginBot());
 client.once('ready', ()=>console.log(`🤖 로그인됨: ${client.user.tag}`));
+
 
 
