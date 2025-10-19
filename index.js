@@ -585,7 +585,6 @@ if (commandName === '복권구매') {
 async function playBlackjack(interaction, bet) {
   if (bet <= 0 || bet > userData.balance) {
     await interaction.reply('💸 베팅 금액 오류');
-    return;
   }
   await updateBalance(interaction.user.id, -bet, '블랙잭 베팅');
 
@@ -618,7 +617,6 @@ async function playBlackjack(interaction, bet) {
 async function playBaccarat(interaction, bet, choice) {
   if (bet <= 0 || bet > userData.balance) {
     await interaction.reply('💸 베팅 금액 오류');
-    return;
   }
   await updateBalance(interaction.user.id, -bet, '바카라 베팅');
 
@@ -703,6 +701,7 @@ async function loginBot() {
 initDB().then(() => loginBot()).catch((e) => console.error('DB 초기화 실패:', e));
 
 client.once('ready', () => console.log(`🤖 로그인됨: ${client.user.tag}`));
+
 
 
 
