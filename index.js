@@ -270,25 +270,11 @@ function createDeck() {
 }
 
 // =====  관련 함수 =====
-// 🎯 복권 발표용 채널 자동 탐색 함수
-async function findLotteryChannel(client) {
-  for (const guild of client.guilds.cache.values()) {
-    const channel = guild.channels.cache.find(
-      c =>
-        c.type === ChannelType.GuildText &&
-        (c.name.includes('복권') || c.name.toLowerCase().includes('lottery'))
-    );
-    if (channel) return channel;
-  }
-  return null;
-}
-
-
-
 // 🎰 복권 결과 계산 + 발표 함수 (자동/수동 공용)
-async function drawLotteryAndAnnounce(clientParam, manual = false, interaction = null) {
+async function drawLotteryAndAnnounce(client, db, updateBalance, manual = false, interaction = null) {
   const today = new Date().toISOString().split('T')[0];
   const tickets = await db.all('SELECT * FROM lottery_tickets WHERE draw_date = ?', today);
+
   if (!tickets.length) {
     const msg = '📭 오늘은 구매한 복권이 없습니다.';
     if (manual && interaction) return interaction.reply(msg);
@@ -296,7 +282,7 @@ async function drawLotteryAndAnnounce(clientParam, manual = false, interaction =
     return;
   }
 
-  // ✅ 중복 없는 랜덤 당첨번호
+  // ✅ 중복 없는 랜덤 당첨번호 생성
   const available = Array.from({ length: 45 }, (_, i) => i + 1);
   const winning = [];
   for (let i = 0; i < 6; i++) {
@@ -308,12 +294,27 @@ async function drawLotteryAndAnnounce(clientParam, manual = false, interaction =
   // 💰 당첨자 확인
   const results = [];
   for (const ticket of tickets) {
-    const nums = ticket.numbers.split(',').map((n) => parseInt(n.trim()));
-    const matches = nums.filter((n) => winning.includes(n)).length;
-    const reward = matches === 6 ? 5000: 0;
+    const nums = ticket.numbers.split(',').map(n => parseInt(n.trim()));
+    const matches = nums.filter(n => winning.includes(n)).length;
+    const reward = matches === 6 ? 5000 : 0;
+
     if (reward > 0) {
       await updateBalance(ticket.user_id, reward, `복권 ${matches}개 일치 보상`);
-      results.push(`<@${ticket.user_id}> ➜ ${matches}개 일치 🎉 (${reward}코인)`);
+
+      // 서버 닉네임 가져오기
+      let displayName = ticket.user_id; // 기본값: ID
+      try {
+        // 봇이 속한 모든 서버 확인
+        for (const guild of client.guilds.cache.values()) {
+          const member = await guild.members.fetch(ticket.user_id).catch(() => null);
+          if (member) {
+            displayName = member.displayName;
+            break; // 찾으면 종료
+          }
+        }
+      } catch {}
+
+      results.push(`${displayName} ➜ ${matches}개 일치 🎉 (${reward}코인)`);
     }
   }
 
@@ -328,7 +329,7 @@ async function drawLotteryAndAnnounce(clientParam, manual = false, interaction =
   if (manual && interaction) {
     return interaction.reply(resultText);
   } else {
-    const channel = await findLotteryChannel(clientParam);
+    const channel = await findLotteryChannel(client);
     if (channel) {
       await channel.send(resultText);
       console.log(`✅ 복권 결과가 ${channel.name} 채널에 전송되었습니다.`);
@@ -366,7 +367,7 @@ client.on('interactionCreate', async (interaction) => {
       return interaction.reply(`💸 기본금 1000원 지급. 현재 잔고: ${newBal}원`);
     }
 
-    if (commandName === '잔고') return interaction.reply(`💰 ${user.username}님의 잔고: ${userData.balance}원`);
+    if (commandName === '잔고') return interaction.reply(`💰 ${user.displayname}님의 잔고: ${userData.balance}원`);
 
     if (commandName === '골라') {
       const opts = options.getString('옵션들').split(',').map((x) => x.trim()).filter(Boolean);
@@ -432,7 +433,7 @@ client.on('interactionCreate', async (interaction) => {
       const target = options.getUser('대상');
       const amt = options.getInteger('금액');
       const newBal = await updateBalance(target.id, amt, '관리자 지급');
-      return interaction.reply(`✅ ${target.username}에게 ${amt}원 지급. (잔고: ${newBal})`);
+      return interaction.reply(`✅ ${target.displayname}에게 ${amt}원 지급. (잔고: ${newBal})`);
     }
 
     if (commandName === '경마') {
@@ -513,7 +514,7 @@ function renderBlackjack(username, playerHand, dealerHand, reveal = false, resul
   const playerVal = calcHandValue(playerHand);
   const dealerVal = reveal ? calcHandValue(dealerHand) : '?';
   const dealerShow = reveal ? dealerHand.map((c) => `${c.suit}${c.rank}`).join(' ') : `${dealerHand[0].suit}${dealerHand[0].rank} ??`;
-  return `🃏 **${username}의 블랙잭**  \n딜러: ${dealerShow} (${dealerVal})\n플레이어: ${playerHand.map((c) => `${c.suit}${c.rank}`).join(' ')} (${playerVal})${resultText ? `\n${resultText}` : ''}`;
+  return `🃏 **${displayname}의 블랙잭**  \n딜러: ${dealerShow} (${dealerVal})\n플레이어: ${playerHand.map((c) => `${c.suit}${c.rank}`).join(' ')} (${playerVal})${resultText ? `\n${resultText}` : ''}`;
 }
 async function dealerTurn(interaction, game) {
   while (calcHandValue(game.dealerHand) < 17) game.dealerHand.push(drawCard(game.deck));
@@ -626,6 +627,7 @@ async function loginBot() {
 initDB().then(() => loginBot()).catch((e) => console.error('DB 초기화 실패:', e));
 
 client.once('ready', () => console.log(`🤖 로그인됨: ${client.user.tag}`));
+
 
 
 
