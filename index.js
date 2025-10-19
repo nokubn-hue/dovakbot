@@ -306,7 +306,7 @@ async function drawLotteryAndAnnounce(clientParam, manual = false, interaction =
   for (const ticket of tickets) {
     const nums = ticket.numbers.split(',').map((n) => parseInt(n.trim()));
     const matches = nums.filter((n) => winning.includes(n)).length;
-    const reward = matches === 6 ? 5000;
+    const reward = matches === 6 ? 5000: 0;
     if (reward > 0) {
       await updateBalance(ticket.user_id, reward, `복권 ${matches}개 일치 보상`);
       results.push(`<@${ticket.user_id}> ➜ ${matches}개 일치 🎉 (${reward}코인)`);
@@ -622,3 +622,4 @@ async function loginBot() {
 initDB().then(() => loginBot()).catch((e) => console.error('DB 초기화 실패:', e));
 
 client.once('ready', () => console.log(`🤖 로그인됨: ${client.user.tag}`));
+
