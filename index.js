@@ -377,7 +377,8 @@ client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
   const { commandName, user, options } = interaction;
   const userData = await getUser(user.id);
-
+}
+          
   try {
     if (commandName === '돈줘') {
       const now = Date.now();
@@ -473,6 +474,7 @@ client.on('interactionCreate', async interaction=>{
   if(!interaction.isChatInputCommand()) return;
   const {commandName,user,options}=interaction;
   const userData = await getUser(user.id);
+}
   try {
     // ----- 돈줘 -----
     if(commandName==='돈줘'){
@@ -711,6 +713,7 @@ async function loginBot() {
 initDB().then(() => loginBot()).catch((e) => console.error('DB 초기화 실패:', e));
 
 client.once('ready', () => console.log(`🤖 로그인됨: ${client.user.tag}`));
+
 
 
 
