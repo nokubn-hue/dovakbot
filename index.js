@@ -353,8 +353,6 @@ export async function drawLotteryAndAnnounce(client, db, updateBalance, manual =
   }
 }
 
-import cron from 'node-cron';
-
 // 매일 오후 9시 자동 발표
 cron.schedule('0 21 * * *', async () => {
   try {
@@ -642,6 +640,7 @@ async function loginBot() {
 initDB().then(() => loginBot()).catch((e) => console.error('DB 초기화 실패:', e));
 
 client.once('ready', () => console.log(`🤖 로그인됨: ${client.user.tag}`));
+
 
 
 
