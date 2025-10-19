@@ -410,9 +410,9 @@ client.on('interactionCreate', async (interaction) => {
       const exist = await db.get('SELECT * FROM lottery_tickets WHERE user_id = ? AND draw_date = ?', user.id, today);
 
       if (exist) return interaction.reply('🎟️ 이미 오늘 복권을 구매했습니다.');
-      if (userData.balance < 100) return interaction.reply('💸 잔고가 부족합니다. (필요 금액: 100)');
+      if (userData.balance < 1000) return interaction.reply('💸 잔고가 부족합니다. (필요 금액: 100)');
 
-      await updateBalance(user.id, -100, '복권 구매');
+      await updateBalance(user.id, -1000, '복권 구매');
       await db.run('INSERT INTO lottery_tickets(user_id, numbers, draw_date) VALUES(?, ?, ?)', user.id, nums.join(','), today);
 
       return interaction.reply(`🎟️ 복권 구매 완료!\n번호: ${nums.join(', ')}`);
@@ -627,5 +627,6 @@ async function loginBot() {
 initDB().then(() => loginBot()).catch((e) => console.error('DB 초기화 실패:', e));
 
 client.once('ready', () => console.log(`🤖 로그인됨: ${client.user.tag}`));
+
 
 
