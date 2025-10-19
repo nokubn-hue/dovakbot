@@ -409,16 +409,44 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     if (commandName === '슬롯') {
-      const bet = options.getInteger('베팅') ?? 100;
-      if (bet <= 0 || bet > userData.balance) return await interaction.reply('❌ 베팅 금액 오류.');
-      await updateBalance(user.id, -bet, '슬롯 베팅');
-      const result = spinSlot();
-      let reward = 0;
-      if (new Set(result).size === 1) reward = bet * 10;
-      else if (new Set(result).size === 2) reward = bet * 2;
-      if (reward > 0) await updateBalance(user.id, reward, '슬롯 당첨');
-      return await interaction.reply(`🎰 ${result.join(' | ')}\n${reward > 0 ? `🎉 +${reward}` : '꽝...'}\n💰 잔고: ${(await getUser(user.id)).balance}`);
-    }
+  const bet = options.getInteger('베팅') ?? 100;
+  if (bet <= 0 || bet > userData.balance) 
+    return await interaction.reply('❌ 베팅 금액 오류.');
+
+  // 베팅 차감
+  await updateBalance(user.id, -bet, '슬롯 베팅');
+
+  // 슬롯 결과
+  const result = spinSlot();
+  let reward = 0;
+  let penaltyText = '';
+
+  const uniqueSymbols = new Set(result);
+
+  // 당첨 계산
+  if (uniqueSymbols.size === 1) reward = bet * 10;
+  else if (uniqueSymbols.size === 2) reward = bet * 2;
+
+  // 🍒 패널티 적용
+  const cherryCount = result.filter(s => s === '🍒').length;
+  if (cherryCount === 2) {
+    reward -= 500;
+    penaltyText = '💥 체리 2개! 500코인 차감!';
+  } else if (cherryCount === 3) {
+    reward -= 2000;
+    penaltyText = '💀 체리 3개! 2000코인 차감!';
+  }
+
+  // 보상 업데이트
+  if (reward !== 0) await updateBalance(user.id, reward, '슬롯 결과');
+
+  const balance = (await getUser(user.id)).balance;
+
+  return await interaction.reply(
+    `🎰 ${result.join(' | ')}\n${reward > 0 ? `🎉 +${reward}` : reward < 0 ? `💸 ${reward}` : '꽝...'}${penaltyText ? `\n${penaltyText}` : ''}\n💰 잔고: ${balance}`
+  );
+}
+
 
     if (commandName === '복권구매') {
       let nums;
@@ -701,6 +729,7 @@ async function loginBot() {
 initDB().then(() => loginBot()).catch((e) => console.error('DB 초기화 실패:', e));
 
 client.once('ready', () => console.log(`🤖 로그인됨: ${client.user.tag}`));
+
 
 
 
