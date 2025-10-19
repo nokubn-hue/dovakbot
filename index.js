@@ -138,7 +138,9 @@ const baseCommands = [
     .addIntegerOption(opt => opt.setName('베팅').setDescription('베팅 금액').setRequired(false)),
   new SlashCommandBuilder().setName('복권구매')
     .setDescription('복권을 구매합니다.')
-    .addStringOption(opt => opt.setName('번호').setDescription('1~45 중 6개 번호를 쉼표로 입력').setRequired(true)),
+    .addStringOption(opt =>  option.setName('번호')
+      .setDescription('복권 번호를 입력하지 않으면 자동 생성됩니다.')
+      .setRequired(false)) // ✅ 선택 입력으로 변경
   new SlashCommandBuilder().setName('복권상태').setDescription('오늘의 복권 구매 상태를 확인합니다.'),
   new SlashCommandBuilder().setName('경마')
     .setDescription('랜덤 경마를 진행합니다.')
@@ -559,6 +561,7 @@ async function loginBot() {
 // ===== 시작 =====
 initDB().then(() => loginBot());
 client.once('ready', ()=>console.log(`🤖 로그인됨: ${client.user.tag}`));
+
 
 
 
