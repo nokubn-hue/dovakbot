@@ -402,26 +402,44 @@ client.on('interactionCreate', async (interaction) => {
       return await interaction.reply(`🎯 선택된 항목: **${choice}**`);
     }
 
-    if (commandName === '슬롯') {
+if (commandName === '슬롯') {
   const bet = options.getInteger('베팅') ?? 100;
   if (bet <= 0 || bet > userData.balance) 
     return await interaction.reply('❌ 베팅 금액 오류.');
 
-  // 베팅 차감
+  // 1️⃣ 베팅 차감
   await updateBalance(user.id, -bet, '슬롯 베팅');
 
-  // 슬롯 결과
+  // 2️⃣ 슬롯 결과 생성
   const result = spinSlot();
-  let reward = 0;
-  let penaltyText = '';
-
   const uniqueSymbols = new Set(result);
 
-  // 당첨 계산
-  if (uniqueSymbols.size === 1) reward = bet * 10;
-  else if (uniqueSymbols.size === 2) reward = bet * 2;
+  // 3️⃣ 기본 당첨 계산
+  let reward = 0;
+  let patternText = '';
+  if (uniqueSymbols.size === 1) {
+    reward = bet * 10;
+    patternText = '🎉 세 개 동일 심볼! x10 당첨!';
+  } else if (uniqueSymbols.size === 2) {
+    reward = bet * 2;
+    patternText = '✨ 두 개 동일 심볼! x2 당첨!';
+  } else {
+    patternText = '꽝...';
+  }
 
-  // 🍒 패널티 적용
+  // 4️⃣ 7️⃣ 심볼 배율 적용
+  const sevenCount = result.filter(s => s === '7️⃣').length;
+  let sevenText = '';
+  if (sevenCount === 2) {
+    reward = Math.max(0, reward + bet * 5);
+    sevenText = '🔥 7️⃣ 2개! x5배 추가!';
+  } else if (sevenCount === 3) {
+    reward = Math.max(0, reward + bet * 20);
+    sevenText = '💥 7️⃣ 3개! x20배 추가!';
+  }
+
+  // 5️⃣ 🍒 패널티 계산
+  let penaltyText = '';
   const cherryCount = result.filter(s => s === '🍒').length;
   if (cherryCount === 2) {
     reward -= 500;
@@ -431,15 +449,23 @@ client.on('interactionCreate', async (interaction) => {
     penaltyText = '💀 체리 3개! 2000코인 차감!';
   }
 
-  // 보상 업데이트
+  // 6️⃣ 보상 업데이트
   if (reward !== 0) await updateBalance(user.id, reward, '슬롯 결과');
 
+  // 7️⃣ 잔고 조회
   const balance = (await getUser(user.id)).balance;
 
+  // 8️⃣ 최종 메시지
   return await interaction.reply(
-    `🎰 ${result.join(' | ')}\n${reward > 0 ? `🎉 +${reward}` : reward < 0 ? `💸 ${reward}` : '꽝...'}${penaltyText ? `\n${penaltyText}` : ''}\n💰 잔고: ${balance}`
+    `🎰 슬롯 결과: ${result.join(' | ')}\n` +
+    `${patternText}\n` +
+    `${sevenText ? sevenText + '\n' : ''}` +
+    `${penaltyText ? penaltyText + '\n' : ''}` +
+    `💰 최종 잔고: ${balance}원\n` +
+    `${reward > 0 ? `🎉 보상: +${reward}` : reward < 0 ? `💸 손실: ${reward}` : ''}`
   );
 }
+
 
 
    // ===== Discord interaction 처리 =====
@@ -685,6 +711,7 @@ async function loginBot() {
 initDB().then(() => loginBot()).catch((e) => console.error('DB 초기화 실패:', e));
 
 client.once('ready', () => console.log(`🤖 로그인됨: ${client.user.tag}`));
+
 
 
 
