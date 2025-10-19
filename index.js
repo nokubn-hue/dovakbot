@@ -270,7 +270,23 @@ function createDeck() {
 }
 
 // =====  관련 함수 =====
-async function drawLotteryAndAnnounce(client, db, updateBalance, manual = false, interaction = null) {
+import { ChannelType } from 'discord.js'; // 맨 위에서 한 번만 import
+
+// 복권 발표용 채널 자동 탐색 함수
+async function findLotteryChannel(client) {
+  for (const guild of client.guilds.cache.values()) {
+    const channel = guild.channels.cache.find(
+      c =>
+        c.type === ChannelType.GuildText &&
+        (c.name.includes('복권') || c.name.toLowerCase().includes('lottery'))
+    );
+    if (channel) return channel;
+  }
+  return null;
+}
+
+// 복권 결과 계산 + 발표 함수
+export async function drawLotteryAndAnnounce(client, db, updateBalance, manual = false, interaction = null) {
   const today = new Date().toISOString().split('T')[0];
   const tickets = await db.all('SELECT * FROM lottery_tickets WHERE draw_date = ?', today);
 
@@ -281,7 +297,7 @@ async function drawLotteryAndAnnounce(client, db, updateBalance, manual = false,
     return;
   }
 
-  // 중복 없는 랜덤 당첨번호 6개
+  // 랜덤 6개 번호 (중복 없음)
   const available = Array.from({ length: 45 }, (_, i) => i + 1);
   const winning = [];
   for (let i = 0; i < 6; i++) {
@@ -307,7 +323,7 @@ async function drawLotteryAndAnnounce(client, db, updateBalance, manual = false,
           const member = await guild.members.fetch(ticket.user_id).catch(() => null);
           if (member) {
             displayName = member.displayName;
-            break; // 찾으면 종료
+            break;
           }
         }
       } catch (err) {
@@ -326,12 +342,10 @@ async function drawLotteryAndAnnounce(client, db, updateBalance, manual = false,
     results.length ? results.join('\n') : '😢 이번 회차에는 당첨자가 없습니다.',
   ].join('\n');
 
-  // 수동일 경우 interaction.reply
   if (manual && interaction) {
     return interaction.reply(resultText);
   }
 
-  // 자동일 경우 채널 탐색 후 전송
   const channel = await findLotteryChannel(client);
   if (channel) {
     await channel.send(resultText);
@@ -342,18 +356,20 @@ async function drawLotteryAndAnnounce(client, db, updateBalance, manual = false,
 }
 
 
-// 🕘 자동 추첨 스케줄러 (매일 21시)
-cron.schedule(
-  '0 21 * * *',
-  async () => {
-    try {
-      await drawLotteryAndAnnounce(client, false, null);
-    } catch (err) {
-      console.error('💥 Cron 에러:', err);
-    }
-  },
-  { timezone: 'Asia/Seoul' }
-);
+import cron from 'node-cron';
+import { drawLotteryAndAnnounce } from './lottery.js'; // 위 함수가 있는 파일
+
+// 매일 오후 9시 자동 발표 (KST)
+cron.schedule('0 21 * * *', async () => {
+  try {
+    await drawLotteryAndAnnounce(client, db, updateBalance);
+  } catch (err) {
+    console.error('💥 Cron 자동 발표 에러:', err);
+  }
+}, { timezone: 'Asia/Seoul' });
+
+console.log('🕘 매일 오후 9시에 자동 복권 발표 스케줄러 등록 완료');
+
 
 // ===== Discord 인터랙션 처리 =====
 client.on('interactionCreate', async (interaction) => {
@@ -630,6 +646,7 @@ async function loginBot() {
 initDB().then(() => loginBot()).catch((e) => console.error('DB 초기화 실패:', e));
 
 client.once('ready', () => console.log(`🤖 로그인됨: ${client.user.tag}`));
+
 
 
 
