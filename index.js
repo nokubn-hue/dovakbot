@@ -270,19 +270,18 @@ function createDeck() {
 }
 
 // =====  관련 함수 =====
-// 🎰 복권 결과 계산 + 발표 함수 (자동/수동 공용)
 async function drawLotteryAndAnnounce(client, db, updateBalance, manual = false, interaction = null) {
   const today = new Date().toISOString().split('T')[0];
   const tickets = await db.all('SELECT * FROM lottery_tickets WHERE draw_date = ?', today);
 
-  if (!tickets.length) {
+  if (!tickets || tickets.length === 0) {
     const msg = '📭 오늘은 구매한 복권이 없습니다.';
     if (manual && interaction) return interaction.reply(msg);
     console.log(msg);
     return;
   }
 
-  // ✅ 중복 없는 랜덤 당첨번호 생성
+  // 중복 없는 랜덤 당첨번호 6개
   const available = Array.from({ length: 45 }, (_, i) => i + 1);
   const winning = [];
   for (let i = 0; i < 6; i++) {
@@ -291,8 +290,8 @@ async function drawLotteryAndAnnounce(client, db, updateBalance, manual = false,
   }
   winning.sort((a, b) => a - b);
 
-  // 💰 당첨자 확인
   const results = [];
+
   for (const ticket of tickets) {
     const nums = ticket.numbers.split(',').map(n => parseInt(n.trim()));
     const matches = nums.filter(n => winning.includes(n)).length;
@@ -304,7 +303,6 @@ async function drawLotteryAndAnnounce(client, db, updateBalance, manual = false,
       // 서버 닉네임 가져오기
       let displayName = ticket.user_id; // 기본값: ID
       try {
-        // 봇이 속한 모든 서버 확인
         for (const guild of client.guilds.cache.values()) {
           const member = await guild.members.fetch(ticket.user_id).catch(() => null);
           if (member) {
@@ -312,7 +310,9 @@ async function drawLotteryAndAnnounce(client, db, updateBalance, manual = false,
             break; // 찾으면 종료
           }
         }
-      } catch {}
+      } catch (err) {
+        console.warn(`⚠️ 닉네임 조회 실패: ${ticket.user_id}`, err);
+      }
 
       results.push(`${displayName} ➜ ${matches}개 일치 🎉 (${reward}코인)`);
     }
@@ -326,18 +326,21 @@ async function drawLotteryAndAnnounce(client, db, updateBalance, manual = false,
     results.length ? results.join('\n') : '😢 이번 회차에는 당첨자가 없습니다.',
   ].join('\n');
 
+  // 수동일 경우 interaction.reply
   if (manual && interaction) {
     return interaction.reply(resultText);
+  }
+
+  // 자동일 경우 채널 탐색 후 전송
+  const channel = await findLotteryChannel(client);
+  if (channel) {
+    await channel.send(resultText);
+    console.log(`✅ 복권 결과가 ${channel.name} 채널에 전송되었습니다.`);
   } else {
-    const channel = await findLotteryChannel(client);
-    if (channel) {
-      await channel.send(resultText);
-      console.log(`✅ 복권 결과가 ${channel.name} 채널에 전송되었습니다.`);
-    } else {
-      console.log('⚠️ 복권 결과를 보낼 채널을 찾을 수 없습니다.');
-    }
+    console.log('⚠️ 복권 결과를 보낼 채널을 찾을 수 없습니다.');
   }
 }
+
 
 // 🕘 자동 추첨 스케줄러 (매일 21시)
 cron.schedule(
@@ -627,6 +630,7 @@ async function loginBot() {
 initDB().then(() => loginBot()).catch((e) => console.error('DB 초기화 실패:', e));
 
 client.once('ready', () => console.log(`🤖 로그인됨: ${client.user.tag}`));
+
 
 
 
