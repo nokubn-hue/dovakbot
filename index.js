@@ -387,13 +387,22 @@ client.on('interactionCreate', async (interaction) => {
   try {
     if (commandName === '돈줘') {
       const now = Date.now();
-      if (now - userData.last_claim < 86400000) return interaction.reply({ content: '⏰ 이미 오늘 받았습니다.', ephemeral: true });
+      if (now - userData.last_claim < 86400000)
+        return interaction.reply({ content: '⏰ 이미 오늘 받았습니다.', ephemeral: true });
       await db.run('UPDATE users SET last_claim=? WHERE id=?', now, user.id);
       const newBal = await updateBalance(user.id, 1000, '기본금 지급');
       return interaction.reply(`💸 기본금 1000원 지급. 현재 잔고: ${newBal}원`);
     }
 
-    if (commandName === '잔고') return interaction.reply(`💰 ${user.displayname}님의 잔고: ${userData.balance}원`);
+    if (commandName === '잔고') {
+      // 서버 닉네임 우선, 없으면 username 사용
+      let name = user.username;
+      if (interaction.guild) {
+        const member = await interaction.guild.members.fetch(user.id).catch(() => null);
+        if (member) name = member.displayName;
+      }
+      return interaction.reply(`💰 ${name}님의 잔고: ${userData.balance}원`);
+    }
 
     if (commandName === '골라') {
       const opts = options.getString('옵션들').split(',').map((x) => x.trim()).filter(Boolean);
@@ -411,8 +420,19 @@ client.on('interactionCreate', async (interaction) => {
       if (new Set(result).size === 1) reward = bet * 10;
       else if (new Set(result).size === 2) reward = bet * 2;
       if (reward > 0) await updateBalance(user.id, reward, '슬롯 당첨');
-      return interaction.reply(`🎰 ${result.join(' | ')}\n${reward > 0 ? `🎉 +${reward}` : '꽝...'}\n💰 잔고: ${(await getUser(user.id)).balance}`);
+      const updatedUser = await getUser(user.id);
+      return interaction.reply(`🎰 ${result.join(' | ')}\n${reward > 0 ? `🎉 +${reward}` : '꽝...'}\n💰 잔고: ${updatedUser.balance}`);
     }
+
+    // 나머지 명령어 처리...
+  } catch (err) {
+    console.error('❌ 인터랙션 처리 중 오류:', err);
+    try {
+      if (!interaction.replied) await interaction.reply('⚠️ 명령어 처리 중 오류가 발생했습니다.');
+    } catch {}
+  }
+});
+
 
     if (commandName === '복권구매') {
       let nums;
@@ -653,6 +673,7 @@ async function loginBot() {
 initDB().then(() => loginBot()).catch((e) => console.error('DB 초기화 실패:', e));
 
 client.once('ready', () => console.log(`🤖 로그인됨: ${client.user.tag}`));
+
 
 
 
