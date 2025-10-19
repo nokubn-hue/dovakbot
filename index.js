@@ -269,17 +269,22 @@ function createDeck() {
   return deck;
 }
 
-// ===== 복권 관련 함수 =====
+// =====  관련 함수 =====
 // 🎯 복권 발표용 채널 자동 탐색 함수
+import { ChannelType } from 'discord.js';
+
 async function findLotteryChannel(client) {
-  for (const [_, guild] of client.guilds.cache) {
+  for (const guild of client.guilds.cache.values()) {
     const channel = guild.channels.cache.find(
-      (c) => c.type === ChannelType.GuildText && (c.name.includes('복권') || c.name.toLowerCase().includes('lottery'))
+      c =>
+        c.type === ChannelType.GuildText &&
+        (c.name.includes('복권') || c.name.toLowerCase().includes('lottery'))
     );
     if (channel) return channel;
   }
   return null;
 }
+
 
 // 🎰 복권 결과 계산 + 발표 함수 (자동/수동 공용)
 async function drawLotteryAndAnnounce(clientParam, manual = false, interaction = null) {
@@ -622,4 +627,5 @@ async function loginBot() {
 initDB().then(() => loginBot()).catch((e) => console.error('DB 초기화 실패:', e));
 
 client.once('ready', () => console.log(`🤖 로그인됨: ${client.user.tag}`));
+
 
