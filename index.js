@@ -271,8 +271,6 @@ function createDeck() {
 
 // =====  관련 함수 =====
 // 🎯 복권 발표용 채널 자동 탐색 함수
-import { ChannelType } from 'discord.js';
-
 async function findLotteryChannel(client) {
   for (const guild of client.guilds.cache.values()) {
     const channel = guild.channels.cache.find(
@@ -284,6 +282,7 @@ async function findLotteryChannel(client) {
   }
   return null;
 }
+
 
 
 // 🎰 복권 결과 계산 + 발표 함수 (자동/수동 공용)
@@ -627,6 +626,7 @@ async function loginBot() {
 initDB().then(() => loginBot()).catch((e) => console.error('DB 초기화 실패:', e));
 
 client.once('ready', () => console.log(`🤖 로그인됨: ${client.user.tag}`));
+
 
 
 
