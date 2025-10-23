@@ -371,10 +371,12 @@ client.on('interactionCreate', async (interaction) => {
       return await interaction.reply(`💸 기본금 1000원 지급. 현재 잔고: ${newBal}원`);
     }
 
-    // ----- 잔고 -----
-    if (commandName === '잔고') {
-      return await interaction.reply(`💰 ${user.username}님의 잔고: ${userData.balance}원`);
-    }
+// ----- 잔고 -----
+if (commandName === '잔고') {
+  const nickname = interaction.member?.displayName || interaction.user.username;
+  return await interaction.reply(`💰 ${nickname}님의 잔고: ${userData.balance}원`);
+}
+
 
     // ----- 골라 -----
     if (commandName === '골라') {
@@ -442,26 +444,51 @@ client.on('interactionCreate', async (interaction) => {
       );
     }
 
-    // ----- 복권구매 -----
-    if (commandName === '복권구매') {
-      let nums;
-      const input = options.getString('번호');
-      if (input) {
-        nums = input.split(',').map(n => parseInt(n.trim()));
-        if (nums.length !== 6 || nums.some(n => isNaN(n) || n < 1 || n > 45)) 
-          return await interaction.reply('⚠️ 번호는 1~45 사이의 숫자 6개를 쉼표로 입력해주세요.');
-      } else {
-        const pool = Array.from({ length: 45 }, (_, i) => i + 1);
-        nums = [];
-        for (let i = 0; i < 6; i++) {
-          const idx = Math.floor(Math.random() * pool.length);
-          nums.push(pool.splice(idx, 1)[0]);
-        }
-      }
-      const today = new Date().toISOString().split('T')[0];
-      await safeDBRun('INSERT INTO lottery_tickets (user_id, numbers, draw_date) VALUES (?, ?, ?)', user.id, nums.join(','), today);
-      return await interaction.reply(`🎟 복권 구매 완료! 번호: ${nums.join(', ')}`);
+// ----- 복권구매 -----
+if (commandName === '복권구매') {
+  const input = options.getString('번호');
+  let nums;
+
+  // ✅ 입력된 번호 검증
+  if (input) {
+    nums = input.split(',').map(n => parseInt(n.trim()));
+    if (nums.length !== 6 || nums.some(n => isNaN(n) || n < 1 || n > 45)) {
+      return await interaction.reply('⚠️ 번호는 1~45 사이의 숫자 6개를 쉼표로 입력해주세요.');
     }
+  } else {
+    // ✅ 자동 번호 생성
+    const pool = Array.from({ length: 45 }, (_, i) => i + 1);
+    nums = [];
+    for (let i = 0; i < 6; i++) {
+      const idx = Math.floor(Math.random() * pool.length);
+      nums.push(pool.splice(idx, 1)[0]);
+    }
+  }
+
+  // ✅ 오늘 날짜 문자열 (예: 2025-10-23)
+  const today = new Date().toISOString().split('T')[0];
+
+  // ✅ 하루 1회 제한 확인
+  const existingTicket = await safeDBGet(
+    'SELECT * FROM lottery_tickets WHERE user_id = ? AND draw_date = ?',
+    user.id,
+    today
+  );
+
+  if (existingTicket) {
+    return await interaction.reply('⚠️ 오늘은 이미 복권을 구매하셨습니다! 내일 다시 시도해주세요.');
+  }
+
+  // ✅ 무료 구매 (금액 차감 없음)
+  await safeDBRun(
+    'INSERT INTO lottery_tickets (user_id, numbers, draw_date) VALUES (?, ?, ?)',
+    user.id,
+    nums.join(','),
+    today
+  );
+
+  return await interaction.reply(`🎟 복권 구매 완료! (무료)\n오늘의 번호: ${nums.join(', ')}`);
+}
 
     // ----- 복권상태 -----
     if (commandName === '복권상태') {
@@ -577,4 +604,5 @@ client.on('interactionCreate', async (interaction) => {
   await client.login(TOKEN);
   console.log('🤖 봇 로그인 완료');
 })();
+
 
