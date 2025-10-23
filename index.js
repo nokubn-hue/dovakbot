@@ -226,13 +226,13 @@ function spinSlot() {
 // ===== 경마/게임 관련 데이터 =====
 const RACE_PAYOUT_MULTIPLIER = 5;
 const horses = [
-  { name: '썬더', emoji: '🐎' },
-  { name: '스피드', emoji: '🐎' },
-  { name: '라이트닝', emoji: '🐎' },
-  { name: '블레이드', emoji: '🐎' },
-  { name: '토네이도', emoji: '🐎' },
-  { name: '스타', emoji: '🐎' },
-  { name: '썬샤인', emoji: '🐎' },
+  { name: '실버 쉽', emoji: '🐎' },
+  { name: '언내추럴 위크', emoji: '🐎' },
+  { name: '루즈 티켓', emoji: '🐎' },
+  { name: '나리타 카나', emoji: '🐎' },
+  { name: '싱글코어 터보', emoji: '🐎' },
+  { name: '로쿠도 캡', emoji: '🐎' },
+  { name: '럭키 카구야', emoji: '🐎' },
 ];
 const activeRaces = new Map();
 const activeBlackjacks = new Map();
@@ -307,7 +307,7 @@ export async function drawLotteryAndAnnounce(client, db, updateBalance, manual =
   for (const ticket of tickets) {
     const nums = ticket.numbers.split(',').map(n => parseInt(n.trim()));
     const matches = nums.filter(n => winning.includes(n)).length;
-    const reward = matches === 6 ? 5000 : 0;
+    const reward = matches === 5 ? 5000 : 0;
 
     if (reward > 0) {
       await updateBalance(ticket.user_id, reward, `복권 ${matches}개 일치 보상`);
@@ -577,3 +577,4 @@ client.on('interactionCreate', async (interaction) => {
   await client.login(TOKEN);
   console.log('🤖 봇 로그인 완료');
 })();
+
