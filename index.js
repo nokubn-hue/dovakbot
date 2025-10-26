@@ -53,14 +53,14 @@ app.listen(PORT, () => console.log('✅ 웹 서버 실행 완료'));
 
 // Render keep-alive ping (4분 간격)
 if (KEEPALIVE_URL) {
-  setInterval(() => {
+  setInterval(async () => {
     try {
-      fetch(KEEPALIVE_URL)
-        .then(() => console.log('🔁 Keep-alive ping'))
-        .catch(() => {});
+      await fetch(KEEPALIVE_URL);
+      console.log('🔁 Keep-alive ping');
     } catch (e) {}
   }, 1000 * 60 * 4);
 }
+
 
 // ===== Discord 클라이언트 초기화 =====
 const client = new Client({
@@ -75,8 +75,19 @@ const client = new Client({
 let db;
 
 // ===== DB 초기화 =====
-async function initDB() {
-  db = await open({ filename: './data.sqlite', driver: sqlite3.Database });
+import sqlite3 from 'sqlite3';
+import { open } from 'sqlite';
+
+let db;
+
+export async function initDB() {
+  // sqlite3 드라이버를 import로 지정
+  db = await open({
+    filename: './data.sqlite',
+    driver: sqlite3.Database
+  });
+
+  // users 테이블
   await db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
@@ -84,6 +95,8 @@ async function initDB() {
       last_claim INTEGER DEFAULT 0
     );
   `);
+
+  // transactions 테이블
   await db.exec(`
     CREATE TABLE IF NOT EXISTS transactions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -93,6 +106,8 @@ async function initDB() {
       timestamp INTEGER
     );
   `);
+
+  // lottery_tickets 테이블
   await db.exec(`
     CREATE TABLE IF NOT EXISTS lottery_tickets (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -101,11 +116,58 @@ async function initDB() {
       draw_date TEXT
     );
   `);
+
   console.log('✅ 데이터베이스 초기화 완료');
 }
 
+// db.js
+import sqlite3 from 'sqlite3';
+import { open } from 'sqlite';
+
+let db;
+
+// ===== DB 초기화 =====
+export async function initDB() {
+  db = await open({
+    filename: './data.sqlite',
+    driver: sqlite3.Database,
+  });
+
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      balance INTEGER DEFAULT 1000,
+      last_claim INTEGER DEFAULT 0
+    );
+  `);
+
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT,
+      amount INTEGER,
+      reason TEXT,
+      timestamp INTEGER
+    );
+  `);
+
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS lottery_tickets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT,
+      numbers TEXT,
+      draw_date TEXT
+    );
+  `);
+
+  console.log('✅ 데이터베이스 초기화 완료');
+}
+
+// ===== DB 객체 export =====
+export { db };
+
 // ===== 안전 DB 함수 =====
-async function safeDBRun(query, ...params) {
+export async function safeDBRun(query, ...params) {
   try {
     return await db.run(query, ...params);
   } catch (err) {
@@ -113,7 +175,8 @@ async function safeDBRun(query, ...params) {
     throw err;
   }
 }
-async function safeDBGet(query, ...params) {
+
+export async function safeDBGet(query, ...params) {
   try {
     return await db.get(query, ...params);
   } catch (err) {
@@ -121,7 +184,8 @@ async function safeDBGet(query, ...params) {
     throw err;
   }
 }
-async function safeDBAll(query, ...params) {
+
+export async function safeDBAll(query, ...params) {
   try {
     return await db.all(query, ...params);
   } catch (err) {
@@ -131,7 +195,7 @@ async function safeDBAll(query, ...params) {
 }
 
 // ===== 유틸 함수 =====
-async function getUser(id) {
+export async function getUser(id) {
   let user = await db.get('SELECT * FROM users WHERE id = ?', id);
   if (!user) {
     await db.run('INSERT INTO users (id, balance) VALUES (?, ?)', id, 1000);
@@ -140,7 +204,7 @@ async function getUser(id) {
   return user;
 }
 
-async function updateBalance(userId, amount, reason) {
+export async function updateBalance(userId, amount, reason) {
   await db.run('BEGIN TRANSACTION');
   try {
     const user = await getUser(userId);
@@ -270,27 +334,139 @@ export const baseCommands = [
     ),
 ];
 
+// db.js
+import sqlite3 from 'sqlite3';
+import { open } from 'sqlite';
+
+let db;
+
+// ===== DB 초기화 =====
+export async function initDB() {
+  db = await open({
+    filename: './data.sqlite',
+    driver: sqlite3.Database,
+  });
+
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      balance INTEGER DEFAULT 1000,
+      last_claim INTEGER DEFAULT 0
+    );
+  `);
+
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT,
+      amount INTEGER,
+      reason TEXT,
+      timestamp INTEGER
+    );
+  `);
+
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS lottery_tickets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT,
+      numbers TEXT,
+      draw_date TEXT
+    );
+  `);
+
+  console.log('✅ 데이터베이스 초기화 완료');
+}
+
+// ===== DB 객체 export =====
+export { db };
+
+// ===== 안전 DB 함수 =====
+export async function safeDBRun(query, ...params) {
+  try {
+    return await db.run(query, ...params);
+  } catch (err) {
+    console.error('💥 DB 실행 에러:', err, query, params);
+    throw err;
+  }
+}
+
+export async function safeDBGet(query, ...params) {
+  try {
+    return await db.get(query, ...params);
+  } catch (err) {
+    console.error('💥 DB 조회 에러:', err, query, params);
+    throw err;
+  }
+}
+
+export async function safeDBAll(query, ...params) {
+  try {
+    return await db.all(query, ...params);
+  } catch (err) {
+    console.error('💥 DB 전체 조회 에러:', err, query, params);
+    throw err;
+  }
+}
+
+// ===== 유틸 함수 =====
+export async function getUser(id) {
+  let user = await db.get('SELECT * FROM users WHERE id = ?', id);
+  if (!user) {
+    await db.run('INSERT INTO users (id, balance) VALUES (?, ?)', id, 1000);
+    user = { id, balance: 1000, last_claim: 0 };
+  }
+  return user;
+}
+
+export async function updateBalance(userId, amount, reason) {
+  await db.run('BEGIN TRANSACTION');
+  try {
+    const user = await getUser(userId);
+    const newBalance = Math.max(0, user.balance + amount);
+    await db.run('UPDATE users SET balance = ? WHERE id = ?', newBalance, userId);
+    await db.run(
+      'INSERT INTO transactions (user_id, amount, reason, timestamp) VALUES (?, ?, ?, ?)',
+      userId,
+      amount,
+      reason,
+      Date.now()
+    );
+    await db.run('COMMIT');
+    return newBalance;
+  } catch (err) {
+    await db.run('ROLLBACK');
+    console.error('💥 Balance update error:', err);
+    throw err;
+  }
+}
+
+// games.js
+import { REST, Routes } from 'discord.js';
+import { baseCommands } from './commands.js';
+import { TOKEN, CLIENT_ID } from './config.js'; // 환경변수 분리 가정
 
 // ===== 명령어 등록 =====
-const rest = new REST({ version: '10' }).setToken(TOKEN);
-(async () => {
+export async function registerCommands() {
+  const rest = new REST({ version: '10' }).setToken(TOKEN);
   try {
-    await rest.put(Routes.applicationCommands(CLIENT_ID), { body: baseCommands.map((c) => c.toJSON()) });
+    await rest.put(Routes.applicationCommands(CLIENT_ID), {
+      body: baseCommands.map((c) => c.toJSON()),
+    });
     console.log('✅ 글로벌 명령어 등록 완료');
   } catch (err) {
     console.error('⚠️ 명령어 등록 실패:', err);
   }
-})();
+}
 
 // ===== 슬롯머신 =====
-function spinSlot() {
+export function spinSlot() {
   const symbols = ['🍒', '🍋', '🍇', '💎', '7️⃣'];
   return [0, 1, 2].map(() => symbols[Math.floor(Math.random() * symbols.length)]);
 }
 
 // ===== 경마/게임 관련 데이터 =====
-const RACE_PAYOUT_MULTIPLIER = 5;
-const horses = [
+export const RACE_PAYOUT_MULTIPLIER = 5;
+export const horses = [
   { name: '실버 쉽', emoji: '🐎' },
   { name: '언내추럴 위크', emoji: '🐎' },
   { name: '루즈 티켓', emoji: '🐎' },
@@ -299,16 +475,20 @@ const horses = [
   { name: '로쿠도 캡', emoji: '🐎' },
   { name: '럭키 카구야', emoji: '🐎' },
 ];
-const activeRaces = new Map();
-const activeBlackjacks = new Map();
-const suits = ['♠️', '♥️', '♦️', '♣️'];
-const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
-const activeBaccarat = new Map();
 
-function drawCard(deck) {
+export const activeRaces = new Map();
+export const activeBlackjacks = new Map();
+export const activeBaccarat = new Map();
+
+export const suits = ['♠️', '♥️', '♦️', '♣️'];
+export const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+
+// ===== 카드 관련 함수 =====
+export function drawCard(deck) {
   return deck.pop();
 }
-function calcHandValue(hand) {
+
+export function calcHandValue(hand) {
   let value = 0,
     aces = 0;
   for (const c of hand) {
@@ -324,7 +504,8 @@ function calcHandValue(hand) {
   }
   return value;
 }
-function createDeck() {
+
+export function createDeck() {
   const deck = [];
   for (const s of suits) for (const r of ranks) deck.push({ suit: s, rank: r });
   for (let i = deck.length - 1; i > 0; i--) {
@@ -334,20 +515,40 @@ function createDeck() {
   return deck;
 }
 
-// =====  관련 함수 =====
-// ===== 유틸: 복권 채널 탐색 =====
-async function findLotteryChannel(client) {
+// lottery.js
+import cron from 'node-cron';
+import { ChannelType } from 'discord.js';
+
+/**
+ * 유틸: 복권 채널 탐색
+ */
+export async function findLotteryChannel(client) {
   for (const guild of client.guilds.cache.values()) {
     const channel = guild.channels.cache.find(
-      c => c.type===ChannelType.GuildText && (c.name.includes('복권')||c.name.toLowerCase().includes('lottery'))
+      (c) =>
+        c.type === ChannelType.GuildText &&
+        (c.name.includes('복권') || c.name.toLowerCase().includes('lottery'))
     );
-    if(channel) return channel;
+    if (channel) return channel;
   }
   return null;
 }
 
-// ===== 복권 결과 계산 + 발표 함수 =====
-export async function drawLotteryAndAnnounce(client, db, updateBalance, manual = false, interaction = null) {
+/**
+ * 복권 결과 계산 + 발표 함수
+ * @param {Client} client Discord client
+ * @param {object} db sqlite db
+ * @param {function} updateBalance 잔고 업데이트 함수
+ * @param {boolean} manual 수동 호출 여부
+ * @param {Interaction} interaction interaction 객체 (수동 호출 시)
+ */
+export async function drawLotteryAndAnnounce(
+  client,
+  db,
+  updateBalance,
+  manual = false,
+  interaction = null
+) {
   const today = new Date().toISOString().split('T')[0];
   const tickets = await db.all('SELECT * FROM lottery_tickets WHERE draw_date = ?', today);
 
@@ -359,7 +560,7 @@ export async function drawLotteryAndAnnounce(client, db, updateBalance, manual =
   }
 
   // 랜덤 6개 번호 (중복 없음)
-  const available = Array.from({ length: 45 }, (_, i) => i + 1);
+  const available = Array.from({ length: 40 }, (_, i) => i + 1);
   const winning = [];
   for (let i = 0; i < 6; i++) {
     const idx = Math.floor(Math.random() * available.length);
@@ -370,8 +571,8 @@ export async function drawLotteryAndAnnounce(client, db, updateBalance, manual =
   const results = [];
 
   for (const ticket of tickets) {
-    const nums = ticket.numbers.split(',').map(n => parseInt(n.trim()));
-    const matches = nums.filter(n => winning.includes(n)).length;
+    const nums = ticket.numbers.split(',').map((n) => parseInt(n.trim()));
+    const matches = nums.filter((n) => winning.includes(n)).length;
     const reward = matches === 5 ? 5000 : 0;
 
     if (reward > 0) {
@@ -393,34 +594,51 @@ export async function drawLotteryAndAnnounce(client, db, updateBalance, manual =
     }
   }
 
-  const resultText=[
+  const resultText = [
     '🎰 **오늘의 복권 당첨 결과** 🎰',
     `📅 날짜: ${today}`,
     `🏆 당첨번호: **${winning.join(', ')}**`,
     '',
-    results.length?results.join('\n'):'😢 이번 회차에는 당첨자가 없습니다.'
+    results.length ? results.join('\n') : '😢 이번 회차에는 당첨자가 없습니다.',
   ].join('\n');
 
-  if(manual && interaction) return interaction.reply(resultText);
+  if (manual && interaction) return interaction.reply(resultText);
+
   const channel = await findLotteryChannel(client);
-  if(channel) await channel.send(resultText);
+  if (channel) await channel.send(resultText);
   else console.warn('⚠️ 복권 결과 채널 없음');
 }
 
-// ===== 매일 오후 9시 자동 발표 =====
-cron.schedule('0 21 * * *', async () => {
-  try {
-    await drawLotteryAndAnnounce(client, db, updateBalance);
-  } catch (err) {
-    console.error('💥 Cron 자동 발표 에러:', err);
-  }
-}, { timezone: 'Asia/Seoul' });
+/**
+ * 자동 스케줄 등록 함수
+ */
+export function scheduleDailyLottery(client, db, updateBalance) {
+  cron.schedule(
+    '0 21 * * *',
+    async () => {
+      try {
+        await drawLotteryAndAnnounce(client, db, updateBalance);
+      } catch (err) {
+        console.error('💥 Cron 자동 발표 에러:', err);
+      }
+    },
+    { timezone: 'Asia/Seoul' }
+  );
+  console.log('🕘 매일 오후 9시에 자동 복권 발표 스케줄러 등록 완료');
+}
 
-console.log('🕘 매일 오후 9시에 자동 복권 발표 스케줄러 등록 완료');
 
-// ===== Discord interaction 처리 =====
-client.on('interactionCreate', async (interaction) => {
+// commandsHandler.js
+import { safeDBRun, updateBalance, getUser } from './db.js';
+import { spinSlot } from './games.js';
+
+/**
+ * Discord SlashCommand 처리
+ * @param {Interaction} interaction
+ */
+export async function handleCommand(interaction) {
   if (!interaction.isChatInputCommand()) return;
+
   const { commandName, user, options } = interaction;
   const userData = await getUser(user.id);
 
@@ -436,96 +654,108 @@ client.on('interactionCreate', async (interaction) => {
       return await interaction.reply(`💸 기본금 1000원 지급. 현재 잔고: ${newBal}원`);
     }
 
-// ----- 잔고 -----
-if (commandName === '잔고') {
-  const nickname = interaction.member?.displayName || interaction.user.username;
-  return await interaction.reply(`💰 ${nickname}님의 잔고: ${userData.balance}원`);
-}
-
+    // ----- 잔고 -----
+    if (commandName === '잔고') {
+      const nickname = interaction.member?.displayName || interaction.user.username;
+      return await interaction.reply(`💰 ${nickname}님의 잔고: ${userData.balance}원`);
+    }
 
     // ----- 골라 -----
     if (commandName === '골라') {
-      const opts = options.getString('옵션들').split(',').map(x => x.trim()).filter(Boolean);
+      const opts = options.getString('옵션들').split(',').map((x) => x.trim()).filter(Boolean);
       if (opts.length < 2) return await interaction.reply('⚠️ 2개 이상 입력해주세요.');
       const choice = opts[Math.floor(Math.random() * opts.length)];
       return await interaction.reply(`🎯 선택된 항목: **${choice}**`);
     }
 
-// ----- 슬롯 -----
-if (commandName === '슬롯') {
-  const bet = options.getInteger('베팅') ?? 100;
-  if (bet <= 0 || bet > userData.balance) 
-    return await interaction.reply('❌ 베팅 금액 오류.');
+    // ----- 슬롯 -----
+    if (commandName === '슬롯') {
+      const bet = options.getInteger('베팅') ?? 100;
+      if (bet <= 0 || bet > userData.balance) return await interaction.reply('❌ 베팅 금액 오류.');
 
-  await updateBalance(user.id, -bet, '슬롯 베팅');
+      await updateBalance(user.id, -bet, '슬롯 베팅');
 
-  const result = spinSlot();
-  const uniqueSymbols = new Set(result);
-  let reward = 0;
-  let patternText = '';
-  let sevenText = '';
+      const result = spinSlot();
+      const uniqueSymbols = new Set(result);
+      let reward = 0;
+      let patternText = '';
+      let sevenText = '';
 
-  // 🍒 패널티 먼저 확인
-  const cherryCount = result.filter(s => s === '🍒').length;
-  let penaltyText = '';
-  let isPenalty = false;
-  if (cherryCount === 2) {
-    reward -= 500;
-    penaltyText = '💥 체리 2개! 500코인 차감!';
-    isPenalty = true;
-  } else if (cherryCount === 3) {
-    reward -= 2000;
-    penaltyText = '💀 체리 3개! 2000코인 차감!';
-    isPenalty = true;
-  }
+      // 🍒 패널티
+      const cherryCount = result.filter((s) => s === '🍒').length;
+      let penaltyText = '';
+      let isPenalty = false;
+      if (cherryCount === 2) {
+        reward -= 500;
+        penaltyText = '💥 체리 2개! 500코인 차감!';
+        isPenalty = true;
+      } else if (cherryCount === 3) {
+        reward -= 2000;
+        penaltyText = '💀 체리 3개! 2000코인 차감!';
+        isPenalty = true;
+      }
 
-  // 패널티가 없을 때만 보상 계산
-  if (!isPenalty) {
-    if (uniqueSymbols.size === 1) {
-      reward = bet * 10;
-      patternText = '🎉 세 개 동일 심볼! x10 당첨!';
-    } else if (uniqueSymbols.size === 2) {
-      reward = bet * 2;
-      patternText = '✨ 두 개 동일 심볼! x2 당첨!';
-    } else {
-      patternText = '꽝...';
+      if (!isPenalty) {
+        if (uniqueSymbols.size === 1) {
+          reward = bet * 10;
+          patternText = '🎉 세 개 동일 심볼! x10 당첨!';
+        } else if (uniqueSymbols.size === 2) {
+          reward = bet * 2;
+          patternText = '✨ 두 개 동일 심볼! x2 당첨!';
+        } else {
+          patternText = '꽝...';
+        }
+
+        // 7️⃣ 심볼 배율
+        const sevenCount = result.filter((s) => s === '7️⃣').length;
+        if (sevenCount === 2) {
+          reward += bet * 5;
+          sevenText = '🔥 7️⃣ 2개! x5배 추가!';
+        } else if (sevenCount === 3) {
+          reward += bet * 20;
+          sevenText = '💥 7️⃣ 3개! x20배 추가!';
+        }
+      }
+
+      if (reward !== 0) await updateBalance(user.id, reward, '슬롯 결과');
+
+      const balance = (await getUser(user.id)).balance;
+
+      return await interaction.reply(
+        `🎰 슬롯 결과: ${result.join(' | ')}\n` +
+          `${patternText}\n` +
+          `${sevenText ? sevenText + '\n' : ''}` +
+          `${penaltyText ? penaltyText + '\n' : ''}` +
+          `💰 최종 잔고: ${balance}원\n` +
+          `${reward > 0 ? `🎉 보상: +${reward}` : reward < 0 ? `💸 손실: ${reward}` : ''}`
+      );
     }
-
-    // 7️⃣ 심볼 배율
-    const sevenCount = result.filter(s => s === '7️⃣').length;
-    if (sevenCount === 2) {
-      reward += bet * 5;
-      sevenText = '🔥 7️⃣ 2개! x5배 추가!';
-    } else if (sevenCount === 3) {
-      reward += bet * 20;
-      sevenText = '💥 7️⃣ 3개! x20배 추가!';
+  } catch (err) {
+    console.error('💥 명령어 처리 에러:', err);
+    if (!interaction.replied) {
+      await interaction.reply({ content: '⚠️ 오류 발생', ephemeral: true });
     }
   }
-
-  if (reward !== 0) await updateBalance(user.id, reward, '슬롯 결과');
-
-  const balance = (await getUser(user.id)).balance;
-
-  return await interaction.reply(
-    `🎰 슬롯 결과: ${result.join(' | ')}\n` +
-    `${patternText}\n` +
-    `${sevenText ? sevenText + '\n' : ''}` +
-    `${penaltyText ? penaltyText + '\n' : ''}` +
-    `💰 최종 잔고: ${balance}원\n` +
-    `${reward > 0 ? `🎉 보상: +${reward}` : reward < 0 ? `💸 손실: ${reward}` : ''}`
-  );
 }
 
 
-// ----- 복권구매 -----
-if (commandName === '복권구매') {
+// lotteryCommand.js
+import { safeDBRun, safeDBGet } from './db.js';
+
+/**
+ * 복권 구매 처리
+ * @param {Interaction} interaction
+ * @param {Object} userData - getUser(user.id)로 가져온 유저 데이터
+ */
+export async function handleLotteryPurchase(interaction, userData) {
+  const { user, options } = interaction;
   const input = options.getString('번호');
   let nums;
 
   // ✅ 입력된 번호 검증
   if (input) {
-    nums = input.split(',').map(n => parseInt(n.trim()));
-    if (nums.length !== 6 || nums.some(n => isNaN(n) || n < 1 || n > 45)) {
+    nums = input.split(',').map((n) => parseInt(n.trim()));
+    if (nums.length !== 6 || nums.some((n) => isNaN(n) || n < 1 || n > 45)) {
       return await interaction.reply('⚠️ 번호는 1~45 사이의 숫자 6개를 쉼표로 입력해주세요.');
     }
   } else {
@@ -563,50 +793,91 @@ if (commandName === '복권구매') {
   return await interaction.reply(`🎟 복권 구매 완료! (무료)\n오늘의 번호: ${nums.join(', ')}`);
 }
 
-    // ----- 복권상태 -----
-    if (commandName === '복권상태') {
-      const today = new Date().toISOString().split('T')[0];
-      const tickets = await db.all('SELECT * FROM lottery_tickets WHERE user_id=? AND draw_date=?', user.id, today);
-      if (!tickets.length) return await interaction.reply('📭 오늘 구매한 복권이 없습니다.');
-      return await interaction.reply('🎟 오늘 구매한 복권:\n' + tickets.map(t => t.numbers).join('\n'));
+    // commands/otherCommands.js
+import { db, safeDBAll, updateBalance } from '../db.js';
+import { drawLotteryAndAnnounce } from '../lottery.js';
+import { ADMIN_IDS, RACE_PAYOUT_MULTIPLIER } from '../config.js';
+
+/**
+ * 복권 상태, 복권 결과, 경마, 관리자 지급 처리
+ * @param {Interaction} interaction
+ * @param {Object} client - Discord client
+ * @param {Object} userData - getUser(user.id)로 가져온 유저 데이터
+ */
+export async function handleOtherCommands(interaction, client, userData) {
+  const { commandName, user, options } = interaction;
+
+  // ----- 복권상태 -----
+  if (commandName === '복권상태') {
+    const today = new Date().toISOString().split('T')[0];
+    const tickets = await safeDBAll(
+      'SELECT * FROM lottery_tickets WHERE user_id=? AND draw_date=?',
+      user.id,
+      today
+    );
+    if (!tickets.length) {
+      return await interaction.reply('📭 오늘 구매한 복권이 없습니다.');
+    }
+    return await interaction.reply(
+      '🎟 오늘 구매한 복권:\n' + tickets.map((t) => t.numbers).join('\n')
+    );
+  }
+
+  // ----- 복권결과 (관리자용) -----
+  if (commandName === '복권결과') {
+    if (!ADMIN_IDS.includes(user.id)) {
+      return await interaction.reply('⚠️ 관리자 전용 명령어입니다.');
+    }
+    await drawLotteryAndAnnounce(client, db, updateBalance, true, interaction);
+  }
+
+  // ----- 경마 -----
+  if (commandName === '경마') {
+    const bet = options.getInteger('베팅');
+    const horseNum = options.getInteger('말번호');
+
+    if (!horseNum || horseNum < 1 || horseNum > 7) {
+      return interaction.reply('🐎 말 번호는 1~7 중 하나를 선택하세요.');
+    }
+    if (bet <= 0 || bet > userData.balance) {
+      return interaction.reply('❌ 베팅 금액 오류.');
     }
 
-    // ----- 복권결과 (관리자용) -----
-    if (commandName === '복권결과') {
-      if (!ADMIN_IDS.includes(user.id)) return await interaction.reply('⚠️ 관리자 전용 명령어입니다.');
-      await drawLotteryAndAnnounce(client, db, updateBalance, true, interaction);
-    }
+    await updateBalance(user.id, -bet, '경마 베팅');
 
-    // ----- 경마 -----
-    if (commandName === '경마') {
-      const bet = options.getInteger('베팅');
-      const horseNum = options.getInteger('말번호');
-      if (!horseNum || horseNum < 1 || horseNum > 7) return interaction.reply('🐎 말 번호는 1~7 중 하나를 선택하세요.');
-      if (bet <= 0 || bet > userData.balance) return interaction.reply('❌ 베팅 금액 오류.');
-      await updateBalance(user.id, -bet, '경마 베팅');
+    const winner = Math.floor(Math.random() * 7) + 1;
+    let resultText = `🐎 경마 결과: ${winner}번 말 승리!\n`;
+    if (winner === horseNum) {
+      const reward = bet * RACE_PAYOUT_MULTIPLIER;
+      await updateBalance(user.id, reward, '경마 당첨');
+      resultText += `🎉 축하! ${reward} 코인 획득!`;
+    } else resultText += '😢 아쉽네요!';
 
-      const winner = Math.floor(Math.random() * 7) + 1;
-      let resultText = `🐎 경마 결과: ${winner}번 말 승리!\n`;
-      if (winner === horseNum) {
-        const reward = bet * RACE_PAYOUT_MULTIPLIER;
-        await updateBalance(user.id, reward, '경마 당첨');
-        resultText += `🎉 축하! ${reward} 코인 획득!`;
-      } else resultText += '😢 아쉽네요!';
-      return await interaction.reply(resultText);
-    }
+    return await interaction.reply(resultText);
+  }
 
-    // ----- 관리자지급 -----
-    if (commandName === '관리자지급') {
-      if (!ADMIN_IDS.includes(user.id)) return interaction.reply('⚠️ 관리자 전용 명령어입니다.');
-      const target = options.getUser('대상');
-      const amount = options.getInteger('금액');
-      await updateBalance(target.id, amount, '관리자 지급');
-      return interaction.reply(`✅ ${target.username}님에게 ${amount} 코인 지급 완료`);
+  // ----- 관리자지급 -----
+  if (commandName === '관리자지급') {
+    if (!ADMIN_IDS.includes(user.id)) {
+      return interaction.reply('⚠️ 관리자 전용 명령어입니다.');
     }
+    const target = options.getUser('대상');
+    const amount = options.getInteger('금액');
+    await updateBalance(target.id, amount, '관리자 지급');
+    return interaction.reply(`✅ ${target.username}님에게 ${amount} 코인 지급 완료`);
+  }
+}
+
 
 // index.js
 import { Client, GatewayIntentBits } from 'discord.js';
+import dotenv from 'dotenv';
+import { initDB } from './db.js';
 import { runBlackjackManual, runBaccaratManual } from './casinoGames_manual.js';
+import { handleOtherCommands } from './commands/otherCommands.js';
+import { getUser } from './db.js';
+
+dotenv.config();
 
 const TOKEN = process.env.TOKEN;
 if (!TOKEN) {
@@ -614,14 +885,18 @@ if (!TOKEN) {
   process.exit(1);
 }
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 
-// interactionCreate 이벤트 통합
+// ===== interactionCreate 이벤트 통합 =====
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
+  const { commandName, user } = interaction;
+
   try {
-    switch (interaction.commandName) {
+    const userData = await getUser(user.id);
+
+    switch (commandName) {
       case '블랙잭':
         await runBlackjackManual(interaction);
         break;
@@ -629,6 +904,8 @@ client.on('interactionCreate', async (interaction) => {
         await runBaccaratManual(interaction);
         break;
       default:
+        // 그 외 명령어 (복권, 경마, 슬롯 등)
+        await handleOtherCommands(interaction, client, userData);
         break;
     }
   } catch (err) {
@@ -639,22 +916,23 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
-// 봇 준비 완료 이벤트
+// ===== 봇 준비 완료 이벤트 =====
 client.once('ready', () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 });
 
-// 봇 로그인
-client.login(TOKEN).catch((err) => console.error('❌ 로그인 실패:', err));
-    
-
-  
-// ===== 봇 로그인 및 DB 초기화 =====
+// ===== DB 초기화 후 봇 로그인 =====
 (async () => {
-  await initDB();
-  await client.login(TOKEN);
-  console.log('🤖 봇 로그인 완료');
+  try {
+    await initDB();
+    await client.login(TOKEN);
+    console.log('🤖 봇 로그인 완료 & DB 초기화 완료');
+  } catch (err) {
+    console.error('💥 초기화 실패:', err);
+    process.exit(1);
+  }
 })();
+
 
 
 
