@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Discord bot with slot, blackjack, baccarat, horse racing, lottery",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "start": "node index.js",
     "build": "echo 'No build step required'"
@@ -19,4 +20,5 @@
     "node": ">=18.0.0"
   }
 }
+
 
