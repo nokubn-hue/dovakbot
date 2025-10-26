@@ -532,224 +532,23 @@ if (commandName === '복권구매') {
     }
 
     
-// blackjack_baccarat.js (CommonJS)
-const {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  EmbedBuilder
-} = require('discord.js');
+// index.js
+const { Client, GatewayIntentBits } = require('discord.js');
+const { runBlackjackManual, runBaccaratManual } = require('./casinoGames_manual.js');
+require('dotenv').config();
 
-const { getUser, updateBalance } = require('db.js'); // 경로 맞춰 수정하세요
+const client = new Client({ intents:[GatewayIntentBits.Guilds] });
 
-// ===== 블랙잭 =====
-async function runBlackjack(interaction) {
-  if (!interaction.isChatInputCommand() || interaction.commandName !== '블랙잭') return;
-  const user = interaction.user;
-  const options = interaction.options;
-  const userData = await getUser(user.id);
+client.on('interactionCreate', async interaction=>{
+  if(!interaction.isChatInputCommand()) return;
+  await runBlackjackManual(interaction);
+  await runBaccaratManual(interaction);
+});
 
-  const bet = options.getInteger('베팅');
-  const memberName = (interaction.member && interaction.member.displayName) ? interaction.member.displayName : user.username;
+client.once('ready', ()=>console.log(`✅ Logged in as ${client.user.tag}`));
+client.login(process.env.TOKEN);
 
-  if (!bet || bet <= 0 || bet > userData.balance) {
-    return interaction.reply('❌ 베팅 금액 오류.');
-  }
-
-  await updateBalance(user.id, -bet, '블랙잭 베팅');
-
-  // 카드 덱 생성
-  function createDeck() {
-    const suits = ['♠', '♥', '♦', '♣'];
-    const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
-    const deck = [];
-    for (const s of suits) {
-      for (const r of ranks) {
-        deck.push({ rank: r, suit: s });
-      }
-    }
-    // 섞기
-    for (let i = deck.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [deck[i], deck[j]] = [deck[j], deck[i]];
-    }
-    return deck;
-  }
-
-  function cardValue(card) {
-    if (['J', 'Q', 'K'].includes(card.rank)) return 10;
-    if (card.rank === 'A') return 11;
-    return parseInt(card.rank, 10);
-  }
-
-  function calcHandValue(hand) {
-    let value = hand.reduce((sum, c) => sum + cardValue(c), 0);
-    let aceCount = hand.filter(c => c.rank === 'A').length;
-    while (value > 21 && aceCount > 0) {
-      value -= 10;
-      aceCount--;
-    }
-    return value;
-  }
-
-  const deck = createDeck();
-  const playerHand = [deck.pop(), deck.pop()];
-  const dealerHand = [deck.pop(), deck.pop()];
-
-  let finished = false;
-  let reward = 0;
-
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('hit').setLabel('Hit').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('stand').setLabel('Stand').setStyle(ButtonStyle.Secondary)
-  );
-
-  const buildEmbed = function () {
-    const playerVal = calcHandValue(playerHand);
-    return new EmbedBuilder()
-      .setColor('#2f3136')
-      .setTitle('🃏 블랙잭')
-      .setDescription(
-        `👤 **${memberName}님**의 턴\n\n` +
-        `**플레이어:** ${playerHand.map(c => `${c.rank}${c.suit}`).join(' ')} (${playerVal})\n` +
-        `**딜러:** ${dealerHand[0].rank}${dealerHand[0].suit} ??\n\n` +
-        `👉 버튼으로 진행하세요 (Hit / Stand)`
-      );
-  };
-
-  const gameMsg = await interaction.reply({
-    embeds: [buildEmbed()],
-    components: [row],
-    fetchReply: true
-  });
-
-  const collector = gameMsg.createMessageComponentCollector({
-    filter: i => i.user.id === user.id,
-    time: 60000
-  });
-
-  collector.on('collect', async i => {
-    try {
-      if (i.customId === 'hit') {
-        playerHand.push(deck.pop());
-        const newVal = calcHandValue(playerHand);
-        const dealerVal = calcHandValue(dealerHand);
-
-        if (newVal > 21) {
-          finished = true;
-          await i.update({
-            embeds: [
-              new EmbedBuilder()
-                .setColor('Red')
-                .setTitle('💀 버스트!')
-                .setDescription(
-                  `👤 **${memberName}님**\n` +
-                  `플레이어: ${playerHand.map(c => `${c.rank}${c.suit}`).join(' ')} (${newVal})\n` +
-                  `딜러: ${dealerHand.map(c => `${c.rank}${c.suit}`).join(' ')} (${dealerVal})\n\n패배`
-                )
-            ],
-            components: []
-          });
-          collector.stop();
-          return;
-        }
-
-        await i.update({ embeds: [buildEmbed()] });
-      }
-
-      if (i.customId === 'stand') {
-        finished = true;
-        while (calcHandValue(dealerHand) < 17) {
-          dealerHand.push(deck.pop());
-        }
-
-        const playerVal = calcHandValue(playerHand);
-        const dealerVal = calcHandValue(dealerHand);
-
-        let resultText;
-        if (dealerVal > 21 || playerVal > dealerVal) {
-          reward = bet * 2;
-          resultText = `🎉 승리! +${reward}`;
-        } else if (dealerVal === playerVal) {
-          reward = bet;
-          resultText = `⚖️ 무승부! +${reward}`;
-        } else {
-          resultText = '😢 패배';
-        }
-
-        if (reward) await updateBalance(user.id, reward, '블랙잭 결과');
-        const latest = await getUser(user.id);
-        const balance = latest.balance;
-
-        await i.update({
-          embeds: [
-            new EmbedBuilder()
-              .setColor('Gold')
-              .setTitle('🃏 블랙잭 결과')
-              .setDescription(
-                `👤 **${memberName}님**\n` +
-                `플레이어: ${playerHand.map(c => `${c.rank}${c.suit}`).join(' ')} (${playerVal})\n` +
-                `딜러: ${dealerHand.map(c => `${c.rank}${c.suit}`).join(' ')} (${dealerVal})\n\n${resultText}\n💰 현재 잔고: ${balance}원`
-              )
-          ],
-          components: []
-        });
-        collector.stop();
-      }
-    } catch (err) {
-      console.error('블랙잭 처리 중 오류:', err);
-      try { await i.update({ content: '⚠️ 오류가 발생했습니다.', components: [] }); } catch {}
-      collector.stop();
-    }
-  });
-
-  collector.on('end', async () => {
-    if (!finished) {
-      try {
-        await interaction.editReply({ content: '⏰ 제한시간 초과. 게임 종료.', components: [] });
-      } catch {}
-    }
-  });
-}
-
-// ===== 바카라 =====
-async function runBaccarat(interaction) {
-  if (!interaction.isChatInputCommand() || interaction.commandName !== '바카라') return;
-  const user = interaction.user;
-  const options = interaction.options;
-  const userData = await getUser(user.id);
-
-  const bet = options.getInteger('베팅');
-  const choiceRaw = options.getString('선택') || '';
-  const choice = choiceRaw.toLowerCase();
-  const memberName = (interaction.member && interaction.member.displayName) ? interaction.member.displayName : user.username;
-
-  if (!['플레이어', '뱅커', '타이'].includes(choiceRaw)) {
-    return interaction.reply('⚠️ 선택은 플레이어/뱅커/타이 중 하나여야 합니다.');
-  }
-
-  if (!bet || bet <= 0 || bet > userData.balance) {
-    return interaction.reply('❌ 베팅 금액 오류.');
-  }
-
-  await updateBalance(user.id, -bet, '바카라 베팅');
-
-  const playerVal = Math.floor(Math.random() * 10);
-  const bankerVal = Math.floor(Math.random() * 10);
-
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('reveal').setLabel('카드 공개').setStyle(ButtonStyle.Primary)
-  );
-
-  const msg = await interaction.reply({
-    content: `🀄 **${memberName}님**의 바카라 시작!\n선택: ${choiceRaw}\n👉 카드 공개 버튼을 눌러 결과를 확인하세요!`,
-    components: [row],
-    fetchReply: true
-  });
-
-  const coll
-
-
+  
 // ===== 봇 로그인 및 DB 초기화 =====
 (async () => {
   await initDB();
