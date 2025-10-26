@@ -118,42 +118,6 @@ export async function initDB() {
 }
 
 
-// ===== DB 초기화 =====
-export async function initDB() {
-  db = await open({
-    filename: './data.sqlite',
-    driver: sqlite3.Database,
-  });
-
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      balance INTEGER DEFAULT 1000,
-      last_claim INTEGER DEFAULT 0
-    );
-  `);
-
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS transactions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id TEXT,
-      amount INTEGER,
-      reason TEXT,
-      timestamp INTEGER
-    );
-  `);
-
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS lottery_tickets (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id TEXT,
-      numbers TEXT,
-      draw_date TEXT
-    );
-  `);
-
-  console.log('✅ 데이터베이스 초기화 완료');
-}
 
 // ===== DB 객체 export =====
 export { db };
@@ -924,6 +888,7 @@ client.once('ready', () => {
     process.exit(1);
   }
 })();
+
 
 
 
