@@ -164,47 +164,90 @@ async function updateBalance(userId, amount, reason) {
 }
 
 // ===== 명령어 정의 (SlashCommandBuilder 모음) =====
-const baseCommands = [
+import { SlashCommandBuilder } from 'discord.js';
+
+export const baseCommands = [
   new SlashCommandBuilder().setName('돈줘').setDescription('하루에 한 번 기본금을 받습니다.'),
   new SlashCommandBuilder().setName('잔고').setDescription('현재 잔고를 확인합니다.'),
   new SlashCommandBuilder()
     .setName('골라')
     .setDescription('여러 옵션 중 하나를 무작위로 선택합니다.')
-    .addStringOption((opt) => opt.setName('옵션들').setDescription('쉼표로 구분된 옵션').setRequired(true)),
+    .addStringOption((opt) =>
+      opt.setName('옵션들')
+        .setDescription('쉼표로 구분된 옵션')
+        .setRequired(true)
+    ),
   new SlashCommandBuilder()
     .setName('슬롯')
     .setDescription('슬롯머신을 돌립니다.')
-    .addIntegerOption((opt) => opt.setName('베팅').setDescription('베팅 금액').setRequired(false)),
+    .addIntegerOption((opt) =>
+      opt.setName('베팅')
+        .setDescription('베팅 금액')
+        .setRequired(false)
+    ),
   new SlashCommandBuilder()
     .setName('복권구매')
     .setDescription('복권을 구매합니다.')
     .addStringOption((opt) =>
-      opt.setName('번호').setDescription('복권 번호를 입력하지 않으면 자동 생성됩니다. (예: 1,2,3,4,5,6)').setRequired(false)
+      opt.setName('번호')
+        .setDescription('복권 번호를 입력하지 않으면 자동 생성됩니다. (예: 1,2,3,4,5,6)')
+        .setRequired(false)
     ),
-  new SlashCommandBuilder().setName('복권상태').setDescription('오늘의 복권 구매 상태를 확인합니다.'),
+  new SlashCommandBuilder()
+    .setName('복권상태')
+    .setDescription('오늘의 복권 구매 상태를 확인합니다.'),
   new SlashCommandBuilder()
     .setName('복권결과')
     .setDescription('오늘의 복권 결과를 수동으로 발표합니다.'),
   new SlashCommandBuilder()
     .setName('경마')
     .setDescription('랜덤 경마를 진행합니다.')
-    .addIntegerOption((opt) => opt.setName('베팅').setDescription('베팅 금액').setRequired(true))
-    .addIntegerOption((opt) => opt.setName('말번호').setDescription('1~7 중 하나 선택').setRequired(true)),
+    .addIntegerOption((opt) =>
+      opt.setName('베팅')
+        .setDescription('베팅 금액')
+        .setRequired(true)
+    )
+    .addIntegerOption((opt) =>
+      opt.setName('말번호')
+        .setDescription('1~7 중 하나 선택')
+        .setRequired(true)
+    ),
   new SlashCommandBuilder()
     .setName('관리자지급')
     .setDescription('관리자가 유저에게 포인트를 지급합니다.')
-    .addUserOption((opt) => opt.setName('대상').setDescription('유저 선택').setRequired(true))
-    .addIntegerOption((opt) => opt.setName('금액').setDescription('지급할 금액').setRequired(true)),
+    .addUserOption((opt) =>
+      opt.setName('대상')
+        .setDescription('유저 선택')
+        .setRequired(true)
+    )
+    .addIntegerOption((opt) =>
+      opt.setName('금액')
+        .setDescription('지급할 금액')
+        .setRequired(true)
+    ),
   new SlashCommandBuilder()
     .setName('블랙잭')
     .setDescription('블랙잭을 플레이합니다.')
-    .addIntegerOption((opt) => opt.setName('베팅').setDescription('베팅 금액').setRequired(true)),
+    .addIntegerOption((opt) =>
+      opt.setName('베팅')
+        .setDescription('베팅 금액')
+        .setRequired(true)
+    ),
   new SlashCommandBuilder()
     .setName('바카라')
     .setDescription('바카라를 플레이합니다.')
-    .addIntegerOption((opt) => opt.setName('베팅').setDescription('베팅 금액').setRequired(true))
-    .addStringOption((opt) => opt.setName('선택').setDescription('플레이어 / 뱅커 / 타이').setRequired(true)),
+    .addIntegerOption((opt) =>
+      opt.setName('베팅')
+        .setDescription('베팅 금액')
+        .setRequired(true)
+    )
+    .addStringOption((opt) =>
+      opt.setName('선택')
+        .setDescription('플레이어 / 뱅커 / 타이')
+        .setRequired(true)
+    ),
 ];
+
 
 // ===== 명령어 등록 =====
 const rest = new REST({ version: '10' }).setToken(TOKEN);
@@ -591,6 +634,7 @@ client.login(TOKEN).catch((err) => console.error('❌ 로그인 실패:', err));
   await client.login(TOKEN);
   console.log('🤖 봇 로그인 완료');
 })();
+
 
 
 
