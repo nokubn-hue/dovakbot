@@ -537,19 +537,16 @@ const { Client, GatewayIntentBits } = require('discord.js');
 const { runBlackjackManual, runBaccaratManual } = require('./casinoGames_manual.js');
 require('dotenv').config();
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client=new Client({ intents:[GatewayIntentBits.Guilds] });
 
-client.on('interactionCreate', async interaction => {
+client.on('interactionCreate', async interaction=>{
   if(!interaction.isChatInputCommand()) return;
 
-  try {
-    if (interaction.commandName === '블랙잭') {
-      await runBlackjackManual(interaction);
-    } else if (interaction.commandName === '바카라') {
-      await runBaccaratManual(interaction);
-    }
-  } catch(err) {
-    console.error('💥 Interaction 처리 에러:', err);
+  try{
+    if(interaction.commandName==='블랙잭') await runBlackjackManual(interaction);
+    else if(interaction.commandName==='바카라') await runBaccaratManual(interaction);
+  }catch(err){
+    console.error('💥 Interaction 처리 에러:',err);
     if(!interaction.replied) await interaction.reply({ content:'⚠️ 오류 발생', ephemeral:true });
   }
 });
@@ -561,7 +558,7 @@ if(!process.env.TOKEN){
   process.exit(1);
 }
 
-client.login(process.env.TOKEN).catch(err=>console.error('❌ 로그인 실패:', err));
+client.login(process.env.TOKEN).catch(err=>console.error('❌ 로그인 실패:',err));
 
   
 // ===== 봇 로그인 및 DB 초기화 =====
@@ -570,6 +567,7 @@ client.login(process.env.TOKEN).catch(err=>console.error('❌ 로그인 실패:'
   await client.login(TOKEN);
   console.log('🤖 봇 로그인 완료');
 })();
+
 
 
 
