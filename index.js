@@ -76,8 +76,6 @@ let db;
 
 // ===== DB 초기화 =====
 
-let db;
-
 export async function initDB() {
   // sqlite3 드라이버를 import로 지정
   db = await open({
@@ -930,6 +928,7 @@ client.once('ready', () => {
     process.exit(1);
   }
 })();
+
 
 
 
