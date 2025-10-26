@@ -560,6 +560,7 @@ if(!process.env.TOKEN){
 
 client.login(process.env.TOKEN).catch(err=>console.error('❌ 로그인 실패:',err));
 
+
   
 // ===== 봇 로그인 및 DB 초기화 =====
 (async () => {
@@ -567,6 +568,7 @@ client.login(process.env.TOKEN).catch(err=>console.error('❌ 로그인 실패:'
   await client.login(TOKEN);
   console.log('🤖 봇 로그인 완료');
 })();
+
 
 
 
