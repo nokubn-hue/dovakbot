@@ -822,24 +822,6 @@ async function startRace(channel, bettors) {
 }
 
 
-// index.js
-import { Client, GatewayIntentBits } from 'discord.js';
-import dotenv from 'dotenv';
-import { initDB } from './db.js';
-import { runBlackjackManual, runBaccaratManual } from './casinoGames_manual.js';
-import { handleOtherCommands } from './commands/otherCommands.js';
-import { getUser } from './db.js';
-
-dotenv.config();
-
-const TOKEN = process.env.TOKEN;
-if (!TOKEN) {
-  console.error('❌ Discord Token이 설정되지 않았습니다. .env 확인 필요');
-  process.exit(1);
-}
-
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
-
 // ===== interactionCreate 이벤트 통합 =====
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
@@ -885,6 +867,7 @@ client.once('ready', () => {
     process.exit(1);
   }
 })();
+
 
 
 
