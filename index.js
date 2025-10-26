@@ -860,7 +860,8 @@ client.once('ready', () => {
     console.error('💥 초기화 실패:', err);
     process.exit(1);
   }
-});
+}());
+
 
 
 
