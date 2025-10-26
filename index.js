@@ -163,7 +163,6 @@ async function updateBalance(userId, amount, reason) {
 }
 
 // commands.js
-import { SlashCommandBuilder } from 'discord.js';
 
 export const baseCommands = [
   new SlashCommandBuilder()
@@ -656,6 +655,7 @@ client.login(TOKEN).catch((err) => console.error('❌ 로그인 실패:', err));
   await client.login(TOKEN);
   console.log('🤖 봇 로그인 완료');
 })();
+
 
 
 
