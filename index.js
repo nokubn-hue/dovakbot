@@ -164,7 +164,6 @@ async function updateBalance(userId, amount, reason) {
 }
 
 // ===== 명령어 정의 (SlashCommandBuilder 모음) =====
-import { SlashCommandBuilder } from 'discord.js';
 
 export const baseCommands = [
   new SlashCommandBuilder().setName('돈줘').setDescription('하루에 한 번 기본금을 받습니다.'),
@@ -634,6 +633,7 @@ client.login(TOKEN).catch((err) => console.error('❌ 로그인 실패:', err));
   await client.login(TOKEN);
   console.log('🤖 봇 로그인 완료');
 })();
+
 
 
 
