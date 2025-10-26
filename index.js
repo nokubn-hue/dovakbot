@@ -581,7 +581,6 @@ if (commandName === '복권구매') {
     }
 
 // index.js
-import 'dotenv/config';
 import { Client, GatewayIntentBits } from 'discord.js';
 import { runBlackjackManual, runBaccaratManual } from './casinoGames_manual.js';
 
@@ -632,6 +631,7 @@ client.login(TOKEN).catch((err) => console.error('❌ 로그인 실패:', err));
   await client.login(TOKEN);
   console.log('🤖 봇 로그인 완료');
 })();
+
 
 
 
