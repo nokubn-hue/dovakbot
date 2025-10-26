@@ -2,61 +2,58 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const { getUser, updateBalance } = require('./db.js');
 
-// ===== 카드/핸드 관련 =====
 function createDeck() {
   const suits = ['♠','♥','♦','♣'];
   const ranks = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
   const deck = [];
   for (const s of suits) {
-    for (const r of ranks) {
-      deck.push({ rank: r, suit: s });
-    }
+    for (const r of ranks) deck.push({ rank:r, suit:s });
   }
-  for (let i = deck.length-1; i>0; i--) {
-    const j = Math.floor(Math.random()*(i+1));
-    [deck[i], deck[j]] = [deck[j], deck[i]];
+  for (let i=deck.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [deck[i],deck[j]]=[deck[j],deck[i]];
   }
   return deck;
 }
 
-function cardValue(c) {
-  if (['J','Q','K'].includes(c.rank)) return 10;
-  if (c.rank === 'A') return 11;
+function cardValue(c){
+  if(['J','Q','K'].includes(c.rank)) return 10;
+  if(c.rank==='A') return 11;
   return parseInt(c.rank,10);
 }
 
-function calcHandValue(h) {
-  let v = h.reduce((sum,c)=>sum+cardValue(c),0);
-  let ac = h.filter(c=>c.rank==='A').length;
-  while(v>21 && ac>0) { v-=10; ac--; }
+function calcHandValue(h){
+  let v=h.reduce((sum,c)=>sum+cardValue(c),0);
+  let ac=h.filter(c=>c.rank==='A').length;
+  while(v>21 && ac>0){ v-=10; ac--; }
   return v;
 }
 
 // ===== 블랙잭 수동 =====
-async function runBlackjackManual(interaction) {
-  if (!interaction.isChatInputCommand() || interaction.commandName!=='블랙잭') return;
-  const user = interaction.user;
-  const options = interaction.options;
-  const userData = await getUser(user.id);
-  const bet = options.getInteger('베팅');
-  const memberName = interaction.member ? interaction.member.displayName : user.username;
-  if (!bet || bet<=0 || bet>userData.balance) return interaction.reply('❌ 베팅 금액 오류.');
-  await updateBalance(user.id, -bet, '블랙잭 베팅');
+async function runBlackjackManual(interaction){
+  if(!interaction.isChatInputCommand() || interaction.commandName!=='블랙잭') return;
+  const user=interaction.user;
+  const options=interaction.options;
+  const userData=await getUser(user.id);
+  const bet=options.getInteger('베팅');
+  const memberName=interaction.member ? interaction.member.displayName : user.username;
+  if(!bet || bet<=0 || bet>userData.balance) return interaction.reply('❌ 베팅 금액 오류.');
+  await updateBalance(user.id,-bet,'블랙잭 베팅');
 
-  const deck = createDeck();
-  const playerHand = [deck.pop(), deck.pop()];
-  const dealerHand = [deck.pop(), deck.pop()];
+  const deck=createDeck();
+  const playerHand=[deck.pop(),deck.pop()];
+  const dealerHand=[deck.pop(),deck.pop()];
   let finished=false;
   let reward=0;
 
-  const row = new ActionRowBuilder().addComponents(
+  const row=new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('player_hit').setLabel('플레이어 Hit').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('player_stand').setLabel('플레이어 Stand').setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId('dealer_hit').setLabel('딜러 Hit').setStyle(ButtonStyle.Danger),
     new ButtonBuilder().setCustomId('dealer_stand').setLabel('딜러 Stand').setStyle(ButtonStyle.Secondary)
   );
 
-  const buildEmbed = () => new EmbedBuilder()
+  const buildEmbed=()=>new EmbedBuilder()
     .setColor('#2f3136')
     .setTitle('🃏 블랙잭 수동 진행')
     .setDescription(
@@ -66,11 +63,11 @@ async function runBlackjackManual(interaction) {
       `👉 버튼으로 플레이어와 딜러를 직접 진행하세요.`
     );
 
-  const msg = await interaction.reply({ embeds:[buildEmbed()], components:[row], fetchReply:true });
+  const msg=await interaction.reply({ embeds:[buildEmbed()], components:[row], fetchReply:true });
+  const collector=msg.createMessageComponentCollector({ filter:i=>i.user.id===user.id, time:120000 });
 
-  const collector = msg.createMessageComponentCollector({ filter:i=>i.user.id===user.id, time:120000 });
-  collector.on('collect', async i=>{
-    if (i.customId==='player_hit') {
+  collector.on('collect',async i=>{
+    if(i.customId==='player_hit'){
       playerHand.push(deck.pop());
       if(calcHandValue(playerHand)>21){
         finished=true;
@@ -107,6 +104,7 @@ async function runBlackjackManual(interaction) {
       collector.stop();
     }
   });
+
   collector.on('end', async ()=>{
     if(!finished){
       try{ await interaction.editReply({ content:'⏰ 제한시간 초과. 게임 종료.', components:[] }); } catch{}
@@ -151,7 +149,7 @@ async function runBaccaratManual(interaction){
   const msg=await interaction.reply({ embeds:[buildEmbed()], components:[row], fetchReply:true });
   const collector=msg.createMessageComponentCollector({ filter:i=>i.user.id===user.id, time:120000 });
 
-  collector.on('collect', async i=>{
+  collector.on('collect',async i=>{
     if(i.customId==='player_card'){ playerHand.push(deck.pop()); await i.update({ embeds:[buildEmbed()] }); }
     if(i.customId==='banker_card'){ bankerHand.push(deck.pop()); await i.update({ embeds:[buildEmbed()] }); }
     if(i.customId==='reveal'){
