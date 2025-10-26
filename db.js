@@ -1,40 +1,35 @@
-// 📁 src/db.js
-import fs from 'fs';
-const filePath = './data/userData.json';
+// db.js
+const fs = require('fs');
+const path = require('path');
+const filePath = path.join(__dirname, 'userData.json');
 
-// 파일에서 유저 정보 읽기
-export async function getUser(userId) {
-  let data = {};
+function loadData() {
   try {
-    data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
   } catch {
-    data = {};
+    return {};
   }
+}
 
-  // 유저 정보가 없으면 기본값 생성
-  if (!data[userId]) {
-    data[userId] = { balance: 10000 }; // 기본 잔고 1만 원
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-  }
+function saveData(data) {
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+}
+
+async function getUser(userId) {
+  const data = loadData();
+  if (!data[userId]) data[userId] = { balance: 10000 };
+  saveData(data);
   return data[userId];
 }
 
-// 잔고 업데이트
-export async function updateBalance(userId, amount, reason = '') {
-  let data = {};
-  try {
-    data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-  } catch {
-    data = {};
-  }
-
+async function updateBalance(userId, amount, reason = '') {
+  const data = loadData();
   if (!data[userId]) data[userId] = { balance: 10000 };
-
   data[userId].balance += amount;
   if (data[userId].balance < 0) data[userId].balance = 0;
-
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-
+  saveData(data);
   console.log(`💰 [${reason}] ${userId}: ${amount > 0 ? '+' : ''}${amount}원`);
   return data[userId];
 }
+
+module.exports = { getUser, updateBalance };
