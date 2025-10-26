@@ -537,19 +537,23 @@ import {
   ButtonStyle,
   EmbedBuilder
 } from 'discord.js';
+import { getUser, updateBalance } from 'db.js'; // ✅ 실제 경로에 맞게 수정하세요
 
-// ----- 블랙잭 -----
-if (commandName === '블랙잭') {
+// ===== 블랙잭 =====
+export async function runBlackjack(interaction, options, userData, user) {
+  const commandName = interaction.commandName;
+  if (commandName !== '블랙잭') return;
+
   const bet = options.getInteger('베팅');
-  const memberName = interaction.member?.displayName || user.username; // ✅ 서버 내 닉네임
+  const memberName = interaction.member?.displayName || interaction.user.username; // ✅ 서버 내 닉네임
 
   if (bet <= 0 || bet > userData.balance)
-    return interaction.reply('❌ 베팅 금액 오류.');
+    return interaction.reply('❌ 베팅 금액 오류입니다.');
 
   await updateBalance(user.id, -bet, '블랙잭 베팅');
 
-  // 카드 덱 생성
-  function createDeck() {
+  // 🂡 카드 생성 로직
+  const createDeck = () => {
     const suits = ['♠', '♥', '♦', '♣'];
     const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
     const deck = [];
@@ -557,15 +561,15 @@ if (commandName === '블랙잭') {
       for (const r of ranks)
         deck.push({ rank: r, suit: s });
     return deck.sort(() => Math.random() - 0.5);
-  }
+  };
 
-  function cardValue(card) {
+  const cardValue = card => {
     if (['J', 'Q', 'K'].includes(card.rank)) return 10;
     if (card.rank === 'A') return 11;
     return parseInt(card.rank);
-  }
+  };
 
-  function calcHandValue(hand) {
+  const calcHandValue = hand => {
     let value = hand.reduce((sum, c) => sum + cardValue(c), 0);
     let aceCount = hand.filter(c => c.rank === 'A').length;
     while (value > 21 && aceCount > 0) {
@@ -573,7 +577,7 @@ if (commandName === '블랙잭') {
       aceCount--;
     }
     return value;
-  }
+  };
 
   const deck = createDeck();
   const playerHand = [deck.pop(), deck.pop()];
@@ -589,8 +593,6 @@ if (commandName === '블랙잭') {
 
   const updateEmbed = () => {
     const playerVal = calcHandValue(playerHand);
-    const dealerVal = calcHandValue([dealerHand[0]]);
-
     return new EmbedBuilder()
       .setColor('#2f3136')
       .setTitle('🃏 블랙잭')
@@ -605,7 +607,7 @@ if (commandName === '블랙잭') {
   const gameMsg = await interaction.reply({
     embeds: [updateEmbed()],
     components: [row],
-    fetchReply: true,
+    fetchReply: true
   });
 
   const collector = gameMsg.createMessageComponentCollector({
@@ -614,12 +616,10 @@ if (commandName === '블랙잭') {
   });
 
   collector.on('collect', async i => {
-    const playerVal = calcHandValue(playerHand);
-    const dealerVal = calcHandValue(dealerHand);
-
     if (i.customId === 'hit') {
       playerHand.push(deck.pop());
       const newVal = calcHandValue(playerHand);
+      const dealerVal = calcHandValue(dealerHand);
       if (newVal > 21) {
         finished = true;
         await i.update({
@@ -636,7 +636,6 @@ if (commandName === '블랙잭') {
           components: []
         });
         collector.stop();
-        return;
       } else {
         await i.update({ embeds: [updateEmbed()] });
       }
@@ -685,21 +684,24 @@ if (commandName === '블랙잭') {
   });
 }
 
-// ----- 바카라 -----
-if (commandName === '바카라') {
+// ===== 바카라 =====
+export async function runBaccarat(interaction, options, userData, user) {
+  const commandName = interaction.commandName;
+  if (commandName !== '바카라') return;
+
   const bet = options.getInteger('베팅');
   const choice = options.getString('선택')?.toLowerCase();
-  const memberName = interaction.member?.displayName || user.username; // ✅ 서버 내 닉네임
+  const memberName = interaction.member?.displayName || interaction.user.username; // ✅ 서버 내 닉네임
 
   if (!['플레이어', '뱅커', '타이'].includes(choice))
-    return interaction.reply('⚠️ 선택은 플레이어/뱅커/타이 중 하나.');
+    return interaction.reply('⚠️ 선택은 플레이어/뱅커/타이 중 하나여야 합니다.');
   if (bet <= 0 || bet > userData.balance)
-    return interaction.reply('❌ 베팅 금액 오류.');
+    return interaction.reply('❌ 베팅 금액 오류입니다.');
 
   await updateBalance(user.id, -bet, '바카라 베팅');
 
-  let playerVal = Math.floor(Math.random() * 10);
-  let bankerVal = Math.floor(Math.random() * 10);
+  const playerVal = Math.floor(Math.random() * 10);
+  const bankerVal = Math.floor(Math.random() * 10);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('reveal').setLabel('카드 공개').setStyle(ButtonStyle.Primary)
@@ -744,13 +746,13 @@ if (commandName === '바카라') {
   });
 }
 
-
 // ===== 봇 로그인 및 DB 초기화 =====
 (async () => {
   await initDB();
   await client.login(TOKEN);
   console.log('🤖 봇 로그인 완료');
 })();
+
 
 
 
