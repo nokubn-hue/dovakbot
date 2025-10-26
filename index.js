@@ -37,7 +37,6 @@ import { open } from 'sqlite';
 import cron from 'node-cron';
 import express from 'express';
 import dotenv from 'dotenv';
-
 dotenv.config();
 
 // ----- 환경 변수 -----
@@ -633,6 +632,7 @@ client.login(TOKEN).catch((err) => console.error('❌ 로그인 실패:', err));
   await client.login(TOKEN);
   console.log('🤖 봇 로그인 완료');
 })();
+
 
 
 
