@@ -1,6 +1,7 @@
 {
   "name": "dovakbot",
   "version": "1.0.0",
+  "type": "module",
   "description": "Discord bot with slot, blackjack, baccarat, horse racing, lottery",
   "main": "index.js",
   "scripts": {
@@ -9,7 +10,6 @@
   },
   "dependencies": {
     "discord.js": "^14.12.1",
-  "type": "module",
     "dotenv": "^17.2.3",
     "express": "^4.18.2",
     "node-cron": "^3.0.2",
@@ -20,6 +20,7 @@
     "node": ">=18.0.0"
   }
 }
+
 
 
 
