@@ -386,63 +386,71 @@ if (commandName === '잔고') {
       return await interaction.reply(`🎯 선택된 항목: **${choice}**`);
     }
 
-    // ----- 슬롯 -----
-    if (commandName === '슬롯') {
-      const bet = options.getInteger('베팅') ?? 100;
-      if (bet <= 0 || bet > userData.balance) 
-        return await interaction.reply('❌ 베팅 금액 오류.');
+// ----- 슬롯 -----
+if (commandName === '슬롯') {
+  const bet = options.getInteger('베팅') ?? 100;
+  if (bet <= 0 || bet > userData.balance) 
+    return await interaction.reply('❌ 베팅 금액 오류.');
 
-      await updateBalance(user.id, -bet, '슬롯 베팅');
+  await updateBalance(user.id, -bet, '슬롯 베팅');
 
-      const result = spinSlot();
-      const uniqueSymbols = new Set(result);
-      let reward = 0;
-      let patternText = '';
-      if (uniqueSymbols.size === 1) {
-        reward = bet * 10;
-        patternText = '🎉 세 개 동일 심볼! x10 당첨!';
-      } else if (uniqueSymbols.size === 2) {
-        reward = bet * 2;
-        patternText = '✨ 두 개 동일 심볼! x2 당첨!';
-      } else {
-        patternText = '꽝...';
-      }
+  const result = spinSlot();
+  const uniqueSymbols = new Set(result);
+  let reward = 0;
+  let patternText = '';
+  let sevenText = '';
 
-      // 7️⃣ 심볼 배율
-      const sevenCount = result.filter(s => s === '7️⃣').length;
-      let sevenText = '';
-      if (sevenCount === 2) {
-        reward = Math.max(0, reward + bet * 5);
-        sevenText = '🔥 7️⃣ 2개! x5배 추가!';
-      } else if (sevenCount === 3) {
-        reward = Math.max(0, reward + bet * 20);
-        sevenText = '💥 7️⃣ 3개! x20배 추가!';
-      }
+  // 🍒 패널티 먼저 확인
+  const cherryCount = result.filter(s => s === '🍒').length;
+  let penaltyText = '';
+  let isPenalty = false;
+  if (cherryCount === 2) {
+    reward -= 500;
+    penaltyText = '💥 체리 2개! 500코인 차감!';
+    isPenalty = true;
+  } else if (cherryCount === 3) {
+    reward -= 2000;
+    penaltyText = '💀 체리 3개! 2000코인 차감!';
+    isPenalty = true;
+  }
 
-      // 🍒 패널티
-      const cherryCount = result.filter(s => s === '🍒').length;
-      let penaltyText = '';
-      if (cherryCount === 2) {
-        reward -= 500;
-        penaltyText = '💥 체리 2개! 500코인 차감!';
-      } else if (cherryCount === 3) {
-        reward -= 2000;
-        penaltyText = '💀 체리 3개! 2000코인 차감!';
-      }
-
-      if (reward !== 0) await updateBalance(user.id, reward, '슬롯 결과');
-
-      const balance = (await getUser(user.id)).balance;
-
-      return await interaction.reply(
-        `🎰 슬롯 결과: ${result.join(' | ')}\n` +
-        `${patternText}\n` +
-        `${sevenText ? sevenText + '\n' : ''}` +
-        `${penaltyText ? penaltyText + '\n' : ''}` +
-        `💰 최종 잔고: ${balance}원\n` +
-        `${reward > 0 ? `🎉 보상: +${reward}` : reward < 0 ? `💸 손실: ${reward}` : ''}`
-      );
+  // 패널티가 없을 때만 보상 계산
+  if (!isPenalty) {
+    if (uniqueSymbols.size === 1) {
+      reward = bet * 10;
+      patternText = '🎉 세 개 동일 심볼! x10 당첨!';
+    } else if (uniqueSymbols.size === 2) {
+      reward = bet * 2;
+      patternText = '✨ 두 개 동일 심볼! x2 당첨!';
+    } else {
+      patternText = '꽝...';
     }
+
+    // 7️⃣ 심볼 배율
+    const sevenCount = result.filter(s => s === '7️⃣').length;
+    if (sevenCount === 2) {
+      reward += bet * 5;
+      sevenText = '🔥 7️⃣ 2개! x5배 추가!';
+    } else if (sevenCount === 3) {
+      reward += bet * 20;
+      sevenText = '💥 7️⃣ 3개! x20배 추가!';
+    }
+  }
+
+  if (reward !== 0) await updateBalance(user.id, reward, '슬롯 결과');
+
+  const balance = (await getUser(user.id)).balance;
+
+  return await interaction.reply(
+    `🎰 슬롯 결과: ${result.join(' | ')}\n` +
+    `${patternText}\n` +
+    `${sevenText ? sevenText + '\n' : ''}` +
+    `${penaltyText ? penaltyText + '\n' : ''}` +
+    `💰 최종 잔고: ${balance}원\n` +
+    `${reward > 0 ? `🎉 보상: +${reward}` : reward < 0 ? `💸 손실: ${reward}` : ''}`
+  );
+}
+
 
 // ----- 복권구매 -----
 if (commandName === '복권구매') {
@@ -583,6 +591,7 @@ client.login(TOKEN).catch((err) => console.error('❌ 로그인 실패:', err));
   await client.login(TOKEN);
   console.log('🤖 봇 로그인 완료');
 })();
+
 
 
 
