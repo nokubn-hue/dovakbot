@@ -77,12 +77,6 @@ let db;
 
 // ===== DB 초기화 =====
 
-export async function initDB() {
-  // sqlite3 드라이버를 import로 지정
-  db = await open({
-    filename: './data.sqlite',
-    driver: sqlite3.Database
-  });
 
   // users 테이블
   await db.exec(`
@@ -867,6 +861,7 @@ client.once('ready', () => {
     process.exit(1);
   }
 })();
+
 
 
 
