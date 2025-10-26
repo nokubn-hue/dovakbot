@@ -75,8 +75,6 @@ const client = new Client({
 let db;
 
 // ===== DB 초기화 =====
-import sqlite3 from 'sqlite3';
-import { open } from 'sqlite';
 
 let db;
 
