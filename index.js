@@ -38,6 +38,7 @@ import cron from 'node-cron';
 import express from 'express';
 import dotenv from 'dotenv';
 dotenv.config();
+import { initDB, safeDBRun, getUser, updateBalance } from './db.js';
 
 // ----- 환경 변수 -----
 const TOKEN = process.env.DISCORD_TOKEN || process.env.TOKEN;
@@ -116,7 +117,6 @@ export async function initDB() {
   console.log('✅ 데이터베이스 초기화 완료');
 }
 
-+ import { initDB, safeDBRun, getUser, updateBalance } from './db.js';
 
 // ===== DB 초기화 =====
 export async function initDB() {
@@ -924,6 +924,7 @@ client.once('ready', () => {
     process.exit(1);
   }
 })();
+
 
 
 
