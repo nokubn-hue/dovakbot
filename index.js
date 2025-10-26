@@ -531,35 +531,50 @@ if (commandName === '복권구매') {
       return interaction.reply(`✅ ${target.username}님에게 ${amount} 코인 지급 완료`);
     }
 
-    
 // index.js
-const { Client, GatewayIntentBits } = require('discord.js');
-const { runBlackjackManual, runBaccaratManual } = require('./casinoGames_manual.js');
-require('dotenv').config();
+import 'dotenv/config';
+import { Client, GatewayIntentBits } from 'discord.js';
+import { runBlackjackManual, runBaccaratManual } from './casinoGames_manual.js';
 
-const client=new Client({ intents:[GatewayIntentBits.Guilds] });
-
-client.on('interactionCreate', async interaction=>{
-  if(!interaction.isChatInputCommand()) return;
-
-  try{
-    if(interaction.commandName==='블랙잭') await runBlackjackManual(interaction);
-    else if(interaction.commandName==='바카라') await runBaccaratManual(interaction);
-  }catch(err){
-    console.error('💥 Interaction 처리 에러:',err);
-    if(!interaction.replied) await interaction.reply({ content:'⚠️ 오류 발생', ephemeral:true });
-  }
-});
-
-client.once('ready', ()=>console.log(`✅ Logged in as ${client.user.tag}`));
-
-if(!process.env.TOKEN){
+const TOKEN = process.env.TOKEN;
+if (!TOKEN) {
   console.error('❌ Discord Token이 설정되지 않았습니다. .env 확인 필요');
   process.exit(1);
 }
 
-client.login(process.env.TOKEN).catch(err=>console.error('❌ 로그인 실패:',err));
+const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
+// interactionCreate 이벤트 통합
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
+
+  try {
+    switch (interaction.commandName) {
+      case '블랙잭':
+        await runBlackjackManual(interaction);
+        break;
+      case '바카라':
+        await runBaccaratManual(interaction);
+        break;
+      default:
+        break;
+    }
+  } catch (err) {
+    console.error('💥 Interaction 처리 에러:', err);
+    if (!interaction.replied) {
+      await interaction.reply({ content: '⚠️ 오류 발생', ephemeral: true });
+    }
+  }
+});
+
+// 봇 준비 완료 이벤트
+client.once('ready', () => {
+  console.log(`✅ Logged in as ${client.user.tag}`);
+});
+
+// 봇 로그인
+client.login(TOKEN).catch((err) => console.error('❌ 로그인 실패:', err));
+    
 
   
 // ===== 봇 로그인 및 DB 초기화 =====
@@ -568,6 +583,7 @@ client.login(process.env.TOKEN).catch(err=>console.error('❌ 로그인 실패:'
   await client.login(TOKEN);
   console.log('🤖 봇 로그인 완료');
 })();
+
 
 
 
