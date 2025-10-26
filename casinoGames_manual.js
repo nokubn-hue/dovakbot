@@ -168,3 +168,5 @@ export async function runBaccaratManual(interaction){
 
   collector.on('end', async ()=>{ try{ await interaction.editReply({ components:[] }); }catch{} });
 }
+
+
