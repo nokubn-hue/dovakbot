@@ -296,43 +296,6 @@ import { open } from 'sqlite';
 
 let db;
 
-// ===== DB 초기화 =====
-export async function initDB() {
-  db = await open({
-    filename: './data.sqlite',
-    driver: sqlite3.Database,
-  });
-
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      balance INTEGER DEFAULT 1000,
-      last_claim INTEGER DEFAULT 0
-    );
-  `);
-
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS transactions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id TEXT,
-      amount INTEGER,
-      reason TEXT,
-      timestamp INTEGER
-    );
-  `);
-
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS lottery_tickets (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id TEXT,
-      numbers TEXT,
-      draw_date TEXT
-    );
-  `);
-
-  console.log('✅ 데이터베이스 초기화 완료');
-}
-
 // ===== DB 객체 export =====
 export { db };
 
@@ -787,30 +750,64 @@ export async function handleOtherCommands(interaction, client, userData) {
     await drawLotteryAndAnnounce(client, db, updateBalance, true, interaction);
   }
 
-  // ----- 경마 -----
-  if (commandName === '경마') {
-    const bet = options.getInteger('베팅');
-    const horseNum = options.getInteger('말번호');
+// -------------------
+// 블랙잭/바카라/경마 상태 저장
+// -------------------
+const activeBlackjacks = new Map();
+const activeBaccarat = new Map();
+const activeRaces = new Map();
+const horses = ["🐎","🐎","🐎","🐎","🐎","🐎","🐎"];
 
-    if (!horseNum || horseNum < 1 || horseNum > 7) {
-      return interaction.reply('🐎 말 번호는 1~7 중 하나를 선택하세요.');
-    }
-    if (bet <= 0 || bet > userData.balance) {
-      return interaction.reply('❌ 베팅 금액 오류.');
-    }
+// -------------------
+// 경마 게임
+// -------------------
+async function startRace(channel, bettors) {
+  let positions = new Array(horses.length).fill(0);
+  const msg = await channel.send("🏁 경주 시작! 잠시만 기다려주세요...");
 
-    await updateBalance(user.id, -bet, '경마 베팅');
+  return new Promise((resolve) => {
+    let finished = false;
+    const trackLength = 30;
 
-    const winner = Math.floor(Math.random() * 7) + 1;
-    let resultText = `🐎 경마 결과: ${winner}번 말 승리!\n`;
-    if (winner === horseNum) {
-      const reward = bet * RACE_PAYOUT_MULTIPLIER;
-      await updateBalance(user.id, reward, '경마 당첨');
-      resultText += `🎉 축하! ${reward} 코인 획득!`;
-    } else resultText += '😢 아쉽네요!';
+    const interval = setInterval(async () => {
+      for (let i = 0; i < horses.length; i++) {
+        positions[i] += Math.random() < 0.6 ? 0 : Math.floor(Math.random() * 3);
+        if (positions[i] >= trackLength) positions[i] = trackLength;
+      }
 
-    return await interaction.reply(resultText);
-  }
+      // ✅ 말과 깃발 위치만 이동시킨 버전
+      const raceMsg = positions
+        .map((p, i) => |${"·".repeat(p)}${horses[i]}${"·".repeat(trackLength - p)}🏁)
+        .join("\n");
+
+      await msg.edit(🏇 경주 중...\n\n${raceMsg});
+
+      const winners = positions.map((p, i) => (p >= trackLength ? i : null)).filter((x) => x !== null);
+      if (winners.length > 0) {
+        finished = true;
+        clearInterval(interval);
+        const winnerIdx = winners[0];
+
+        for (const [uid, b] of bettors.entries()) {
+          if (b.horseIndex === winnerIdx) {
+            await changeBalance(uid, b.bet * 5, "race_win");
+          }
+        }
+
+        await channel.send(🏆 경주 종료! 우승 말: ${horses[winnerIdx]} (번호 ${winnerIdx + 1}));
+        resolve(winnerIdx);
+      }
+    }, 1000);
+
+    setTimeout(() => {
+      if (!finished) {
+        clearInterval(interval);
+        msg.reply("⏱ 경주가 시간초과로 종료되었습니다.");
+        resolve(null);
+      }
+    }, 40000);
+  });
+}
 
   // ----- 관리자지급 -----
   if (commandName === '관리자지급') {
@@ -888,6 +885,7 @@ client.once('ready', () => {
     process.exit(1);
   }
 })();
+
 
 
 
