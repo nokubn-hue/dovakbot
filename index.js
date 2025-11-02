@@ -11,7 +11,7 @@ import { Client, GatewayIntentBits, Partials } from 'discord.js';
 
 // ===== GitHub 기준 ./ 경로 모듈 =====
 import { initDB, safeDBRun, getUser, updateBalance } from './db.js';
-import { baseCommands } from './commands.js';
+import { baseCommands } from './command.js';
 import { drawLotteryAndAnnounce, scheduleDailyLottery } from './lottery.js';
 import { runBlackjackManual, runBaccaratManual } from './casinoGames_manual.js';
 import { handleOtherCommands } from './otherCommands.js';
@@ -90,4 +90,5 @@ client.once('ready', () => {
     process.exit(1);
   }
 })();
+
 
