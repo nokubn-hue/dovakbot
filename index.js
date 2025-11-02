@@ -24,7 +24,6 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import express from 'express';
-import fetch from 'node-fetch';
 
 import {
   Client,
@@ -124,3 +123,4 @@ client.on('interactionCreate', async (interaction) => {
     process.exit(1);
   }
 })();
+
