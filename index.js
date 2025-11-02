@@ -2,7 +2,7 @@
 process.on('uncaughtException', (err) => console.error('💥 Uncaught Exception:', err));
 process.on('unhandledRejection', (reason) => console.error('💥 Unhandled Rejection:', reason));
 
-import 'node-fetch';
+await fetch(KEEPALIVE_URL);
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -90,3 +90,4 @@ client.once('ready', () => {
     process.exit(1);
   }
 })();
+
