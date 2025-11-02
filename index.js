@@ -78,12 +78,6 @@ let db;
 // ===== DB 초기화 =====
 
 
-// ===== DB 초기화 =====
-export async function initDB() {
-  db = await open({
-    filename: './database.sqlite',
-    driver: sqlite3.Database,
-  });
 
   // users 테이블
   await db.exec(`
@@ -864,6 +858,7 @@ client.once('ready', () => {
     process.exit(1);
   }
 }());
+
 
 
 
