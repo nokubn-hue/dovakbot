@@ -1,13 +1,8 @@
-import { safeDBRun, updateBalance, getUser, db } from './db.js';
-import { spinSlot } from './games.js';
+// handleOtherCommands.js
+import { safeDBRun, updateBalance, getUser } from './db.js';
 import { drawLotteryAndAnnounce } from './lottery.js';
-import { ADMIN_IDS, RACE_PAYOUT_MULTIPLIER } from './config.js';
 
-export async function handleOtherCommands(interaction, client, userData) {
-  const { commandName, user, options } = interaction;
-
-//-----경마----
-  // ===== 경마/게임 관련 데이터 =====
+// ===== 경마 관련 상수 =====
 export const RACE_PAYOUT_MULTIPLIER = 5;
 export const horses = [
   { name: '실버 쉽', emoji: '🐎' },
@@ -18,15 +13,12 @@ export const horses = [
   { name: '로쿠도 캡', emoji: '🐎' },
   { name: '럭키 카구야', emoji: '🐎' },
 ];
-
 export const activeRaces = new Map();
-const activeRaces = new Map();
-const horses = ["🐎","🐎","🐎","🐎","🐎","🐎","🐎"];
 
 // -------------------
-// 경마 게임
+// 경마 게임 함수
 // -------------------
-async function startRace(channel, bettors) {
+export async function startRace(channel, bettors) {
   let positions = new Array(horses.length).fill(0);
   const msg = await channel.send("🏁 경주 시작! 잠시만 기다려주세요...");
 
@@ -40,18 +32,13 @@ async function startRace(channel, bettors) {
         if (positions[i] >= trackLength) positions[i] = trackLength;
       }
 
-      // ✅ 말과 깃발 위치만 이동시킨 버전
       const raceMsg = positions
-        .map((p, i) => |${"·".repeat(p)}${horses[i]}${"·".repeat(trackLength - p)}🏁)
+        .map((p, i) => `|${"·".repeat(p)}${horses[i].emoji} ${horses[i].name}${"·".repeat(trackLength - p)}🏁`)
         .join("\n");
 
-    const raceMsg = positions
-  .map((p, i) => `|${"·".repeat(p)}${horses[i]}${"·".repeat(trackLength - p)}🏁`)
-  .join("\n");
+      await msg.edit(`🏇 경주 중...\n\n${raceMsg}`);
 
-await msg.edit(`🏇 경주 중...\n\n${raceMsg}`);
-
-      const winners = positions.map((p, i) => (p >= trackLength ? i : null)).filter((x) => x !== null);
+      const winners = positions.map((p, i) => (p >= trackLength ? i : null)).filter(x => x !== null);
       if (winners.length > 0) {
         finished = true;
         clearInterval(interval);
@@ -59,11 +46,11 @@ await msg.edit(`🏇 경주 중...\n\n${raceMsg}`);
 
         for (const [uid, b] of bettors.entries()) {
           if (b.horseIndex === winnerIdx) {
-            await updateBalance(uid, b.bet * 5, "race_win");
+            await updateBalance(uid, b.bet * RACE_PAYOUT_MULTIPLIER, "race_win");
           }
         }
 
-        await channel.send(🏆 경주 종료! 우승 말: ${horses[winnerIdx]} (번호 ${winnerIdx + 1}));
+        await channel.send(`🏆 경주 종료! 우승 말: ${horses[winnerIdx].emoji} ${horses[winnerIdx].name} (번호 ${winnerIdx + 1})`);
         resolve(winnerIdx);
       }
     }, 1000);
@@ -77,7 +64,13 @@ await msg.edit(`🏇 경주 중...\n\n${raceMsg}`);
     }, 40000);
   });
 }
-  
+
+// -------------------
+// 명령어 처리
+// -------------------
+export async function handleOtherCommands(interaction, client, userData) {
+  const { commandName, user, options } = interaction;
+
   // ----- 돈줘 -----
   if (commandName === '돈줘') {
     const now = Date.now();
@@ -97,41 +90,44 @@ await msg.edit(`🏇 경주 중...\n\n${raceMsg}`);
 
   // ----- 골라 -----
   if (commandName === '골라') {
-    const opts = options.getString('옵션들').split(',').map(x=>x.trim()).filter(Boolean);
-    if (opts.length<2) return interaction.reply('⚠️ 2개 이상 입력해주세요.');
-    const choice = opts[Math.floor(Math.random()*opts.length)];
+    const opts = options.getString('옵션들').split(',').map(x => x.trim()).filter(Boolean);
+    if (opts.length < 2) return interaction.reply('⚠️ 2개 이상 입력해주세요.');
+    const choice = opts[Math.floor(Math.random() * opts.length)];
     return interaction.reply(`🎯 선택된 항목: **${choice}**`);
   }
 
   // ----- 슬롯 -----
   if (commandName === '슬롯') {
     const bet = options.getInteger('베팅') ?? 100;
-    if (bet<=0 || bet>userData.balance) return interaction.reply('❌ 베팅 금액 오류.');
-    await updateBalance(user.id,-bet,'슬롯 베팅');
+    if (bet <= 0 || bet > userData.balance) return interaction.reply('❌ 베팅 금액 오류.');
+    await updateBalance(user.id, -bet, '슬롯 베팅');
     const result = spinSlot();
-    let reward=0, patternText='', sevenText='', penaltyText='';
-    const cherryCount = result.filter(s=>'🍒'===s).length;
-    if(cherryCount===2){ reward-=500; penaltyText='💥 체리 2개! 500코인 차감!'; }
-    else if(cherryCount===3){ reward-=2000; penaltyText='💀 체리 3개! 2000코인 차감!'; }
-    if(!penaltyText){
+
+    let reward = 0, patternText = '', sevenText = '', penaltyText = '';
+    const cherryCount = result.filter(s => s === '🍒').length;
+    if (cherryCount === 2) { reward -= 500; penaltyText = '💥 체리 2개! 500코인 차감!'; }
+    else if (cherryCount === 3) { reward -= 2000; penaltyText = '💀 체리 3개! 2000코인 차감!'; }
+
+    if (!penaltyText) {
       const unique = new Set(result);
-      if(unique.size===1){ reward=bet*10; patternText='🎉 세 개 동일 심볼! x10 당첨!'; }
-      else if(unique.size===2){ reward=bet*2; patternText='✨ 두 개 동일 심볼! x2 당첨!'; }
-      else patternText='꽝...';
-      const sevenCount = result.filter(s=>'7️⃣'===s).length;
-      if(sevenCount===2){ reward+=bet*5; sevenText='🔥 7️⃣ 2개! x5배 추가!'; }
-      else if(sevenCount===3){ reward+=bet*20; sevenText='💥 7️⃣ 3개! x20배 추가!'; }
+      if (unique.size === 1) { reward = bet * 10; patternText = '🎉 세 개 동일 심볼! x10 당첨!'; }
+      else if (unique.size === 2) { reward = bet * 2; patternText = '✨ 두 개 동일 심볼! x2 당첨!'; }
+      else patternText = '꽝...';
+
+      const sevenCount = result.filter(s => s === '7️⃣').length;
+      if (sevenCount === 2) { reward += bet * 5; sevenText = '🔥 7️⃣ 2개! x5배 추가!'; }
+      else if (sevenCount === 3) { reward += bet * 20; sevenText = '💥 7️⃣ 3개! x20배 추가!'; }
     }
-    if(reward!==0) await updateBalance(user.id,reward,'슬롯 결과');
-    const balance=(await getUser(user.id)).balance;
+
+    if (reward !== 0) await updateBalance(user.id, reward, '슬롯 결과');
+    const balance = (await getUser(user.id)).balance;
+
     return interaction.reply(
-      `🎰 슬롯 결과: ${result.join(' | ')}\n`+
-      `${patternText}\n${sevenText ? sevenText+'\n':''}${penaltyText ? penaltyText+'\n':''}`+
-      `💰 최종 잔고: ${balance}원\n`+
-      `${reward>0?`🎉 보상: +${reward}`: reward<0?`💸 손실: ${reward}`:''}`
+      `🎰 슬롯 결과: ${result.join(' | ')}\n` +
+      `${patternText}\n${sevenText ? sevenText+'\n':''}${penaltyText ? penaltyText+'\n':''}` +
+      `💰 최종 잔고: ${balance}원\n` +
+      `${reward > 0 ? `🎉 보상: +${reward}` : reward < 0 ? `💸 손실: ${reward}` : ''}`
     );
   }
 
-  // ----- 복권 구매, 상태, 결과, 경마, 관리자 지급 -----
-  await handleOtherCommands(interaction, client, userData);
 }

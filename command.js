@@ -13,10 +13,7 @@ export const baseCommands = [
     .setName('골라')
     .setDescription('여러 옵션 중 하나를 무작위로 선택합니다.')
     .addStringOption(opt =>
-      opt
-        .setName('옵션들')
-        .setDescription('쉼표로 구분된 옵션')
-        .setRequired(true)
+      opt.setName('옵션들').setDescription('쉼표로 구분된 옵션').setRequired(true)
     ),
 
   new SlashCommandBuilder()
@@ -28,9 +25,9 @@ export const baseCommands = [
 
   new SlashCommandBuilder()
     .setName('복권구매')
-    .setDescription('복권을 구매합니다.')
+    .setDescription('복권을 무료로 구매합니다. (1일 1회)')
     .addStringOption(opt =>
-      opt.setName('번호').setDescription('복권 번호 입력 (자동 생성 가능)').setRequired(false)
+      opt.setName('번호').setDescription('자동 생성 가능').setRequired(false)
     ),
 
   new SlashCommandBuilder()
@@ -78,3 +75,21 @@ export const baseCommands = [
       opt.setName('선택').setDescription('플레이어 / 뱅커 / 타이').setRequired(true)
     ),
 ];
+
+import { REST, Routes } from 'discord.js';
+import { DISCORD_TOKEN, CLIENT_ID, GUILD_ID } from './config.js';
+
+export async function registerCommands() {
+  const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
+
+  try {
+    console.log('🔹 슬래시 명령어 등록 시작...');
+    await rest.put(
+      Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
+      { body: baseCommands.map(cmd => cmd.toJSON()) }
+    );
+    console.log('✅ 슬래시 명령어 등록 완료');
+  } catch (err) {
+    console.error('💥 명령어 등록 에러:', err);
+  }
+}
