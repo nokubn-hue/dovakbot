@@ -1,98 +1,60 @@
-// ===== index.js =====
-
 // ===== 안정화 코드: 가장 상단 =====
-process.on('uncaughtException', (err) => {
-  console.error('💥 Uncaught Exception 발생:', err);
-});
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('💥 Unhandled Rejection 발생:', reason);
-});
+process.on('uncaughtException', (err) => console.error('💥 Uncaught Exception:', err));
+process.on('unhandledRejection', (reason) => console.error('💥 Unhandled Rejection:', reason));
 
-// 안전한 Interval Wrapper
-async function safeInterval(callback, intervalMs) {
-  return setInterval(async () => {
-    try {
-      await callback();
-    } catch (err) {
-      console.error('💥 Interval 에러:', err);
-    }
-  }, intervalMs);
-}
-
-// ===== 모듈 임포트 =====
+import 'node-fetch';
 import dotenv from 'dotenv';
 dotenv.config();
 
 import express from 'express';
+import { Client, GatewayIntentBits, Partials } from 'discord.js';
 
-import {
-  Client,
-  GatewayIntentBits,
-  Partials,
-} from 'discord.js';
-
-import { initDB, getUser, updateBalance } from './db.js';
+// ===== GitHub 기준 ./ 경로 모듈 =====
+import { initDB, safeDBRun, getUser, updateBalance } from './db.js';
 import { baseCommands } from './commands.js';
-import { registerCommands } from './games.js';
 import { drawLotteryAndAnnounce, scheduleDailyLottery } from './lottery.js';
-import { handleOtherCommands } from './otherCommands.js';
 import { runBlackjackManual, runBaccaratManual } from './casinoGames_manual.js';
+import { handleOtherCommands } from './otherCommands.js';
 
-// ----- 환경 변수 -----
-const TOKEN = process.env.DISCORD_TOKEN || process.env.TOKEN;
+// ===== 환경 변수 =====
+const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const ADMIN_IDS = process.env.ADMIN_USER_IDS?.split(',') || [];
 const PORT = process.env.PORT || 10000;
-const KEEPALIVE_URL = process.env.KEEPALIVE_URL || 'https://dovakbot.onrender.com';
+const KEEPALIVE_URL = process.env.KEEPALIVE_URL;
 
 // ===== Express 서버 =====
 const app = express();
 app.get('/', (_, res) => res.send('봇 실행 중'));
-app.listen(PORT, () => console.log('✅ 웹 서버 실행 완료'));
+app.listen(PORT, () => console.log(`✅ 웹 서버 실행: ${PORT}`));
 
-// Render keep-alive ping (4분 간격)
 if (KEEPALIVE_URL) {
-  safeInterval(async () => {
-    try { await fetch(KEEPALIVE_URL); console.log('🔁 Keep-alive ping'); } catch {}
+  setInterval(async () => {
+    try {
+      await fetch(KEEPALIVE_URL);
+      console.log('🔁 Keep-alive ping');
+    } catch {}
   }, 1000 * 60 * 4);
 }
 
-// ===== Discord 클라이언트 초기화 =====
+// ===== Discord 클라이언트 =====
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
   ],
-  partials: [Partials.Message, Partials.Channel],
+  partials: [Partials.Message, Partials.Channel, Partials.GuildMember],
 });
 
-// ===== 봇 준비 완료 이벤트 =====
-client.once('ready', async () => {
-  console.log(`✅ Logged in as ${client.user.tag}`);
-
-  try {
-    // 명령어 등록
-    await registerCommands();
-    console.log('✅ 글로벌 명령어 등록 완료');
-
-    // 복권 자동 스케줄
-    scheduleDailyLottery(client, { getUser, updateBalance }, updateBalance);
-    console.log('🕘 복권 자동 스케줄 등록 완료');
-  } catch (err) {
-    console.error('💥 초기화 오류:', err);
-  }
-});
-
-// ===== Interaction 처리 =====
+// ===== interaction 처리 =====
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
   const { commandName, user } = interaction;
+  const userData = await getUser(user.id);
 
   try {
-    const userData = await getUser(user.id);
-
     switch (commandName) {
       case '블랙잭':
         await runBlackjackManual(interaction);
@@ -106,10 +68,15 @@ client.on('interactionCreate', async (interaction) => {
     }
   } catch (err) {
     console.error('💥 Interaction 처리 에러:', err);
-    if (!interaction.replied) {
+    if (!interaction.replied)
       await interaction.reply({ content: '⚠️ 오류 발생', ephemeral: true });
-    }
   }
+});
+
+// ===== 봇 준비 완료 =====
+client.once('ready', () => {
+  console.log(`✅ Logged in as ${client.user.tag}`);
+  scheduleDailyLottery(client, { run: safeDBRun }, updateBalance);
 });
 
 // ===== DB 초기화 후 로그인 =====
@@ -123,4 +90,3 @@ client.on('interactionCreate', async (interaction) => {
     process.exit(1);
   }
 })();
-
