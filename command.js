@@ -93,3 +93,4 @@ export async function registerCommands() {
     console.error('💥 명령어 등록 에러:', err);
   }
 }
+
