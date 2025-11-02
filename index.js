@@ -78,6 +78,13 @@ let db;
 // ===== DB 초기화 =====
 
 
+// ===== DB 초기화 =====
+export async function initDB() {
+  db = await open({
+    filename: './database.sqlite',
+    driver: sqlite3.Database,
+  });
+
   // users 테이블
   await db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -110,8 +117,6 @@ let db;
 
   console.log('✅ 데이터베이스 초기화 완료');
 }
-
-
 
 // ===== DB 객체 export =====
 export { db };
@@ -283,12 +288,6 @@ export const baseCommands = [
         .setRequired(true)
     ),
 ];
-
-// db.js
-import sqlite3 from 'sqlite3';
-import { open } from 'sqlite';
-
-let db;
 
 // ===== DB 객체 export =====
 export { db };
@@ -774,7 +773,11 @@ async function startRace(channel, bettors) {
         .map((p, i) => |${"·".repeat(p)}${horses[i]}${"·".repeat(trackLength - p)}🏁)
         .join("\n");
 
-      await msg.edit(🏇 경주 중...\n\n${raceMsg});
+    const raceMsg = positions
+  .map((p, i) => `|${"·".repeat(p)}${horses[i]}${"·".repeat(trackLength - p)}🏁`)
+  .join("\n");
+
+await msg.edit(`🏇 경주 중...\n\n${raceMsg}`);
 
       const winners = positions.map((p, i) => (p >= trackLength ? i : null)).filter((x) => x !== null);
       if (winners.length > 0) {
@@ -784,7 +787,7 @@ async function startRace(channel, bettors) {
 
         for (const [uid, b] of bettors.entries()) {
           if (b.horseIndex === winnerIdx) {
-            await changeBalance(uid, b.bet * 5, "race_win");
+            await updateBalance(uid, b.bet * 5, "race_win");
           }
         }
 
@@ -861,6 +864,7 @@ client.once('ready', () => {
     process.exit(1);
   }
 }());
+
 
 
 
