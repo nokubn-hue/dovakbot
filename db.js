@@ -4,14 +4,12 @@ import { open } from 'sqlite';
 
 let db;
 
-// ===== DB 초기화 =====
 export async function initDB() {
   db = await open({
-    filename: './database.sqlite',
+    filename: './casino.db',
     driver: sqlite3.Database,
   });
 
-  // users 테이블
   await db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
@@ -20,7 +18,6 @@ export async function initDB() {
     );
   `);
 
-  // transactions 테이블
   await db.exec(`
     CREATE TABLE IF NOT EXISTS transactions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,7 +28,6 @@ export async function initDB() {
     );
   `);
 
-  // lottery_tickets 테이블
   await db.exec(`
     CREATE TABLE IF NOT EXISTS lottery_tickets (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,37 +37,62 @@ export async function initDB() {
     );
   `);
 
-  console.log('✅ 데이터베이스 초기화 완료');
+  console.log('✅ DB 초기화 완료');
 }
 
-// ===== 안전한 쿼리 실행 =====
-export async function safeDBRun(sql, params = []) {
+export { db };
+
+export async function safeDBRun(query, ...params) {
   try {
-    return await db.run(sql, params);
+    return await db.run(query, ...params);
   } catch (err) {
-    console.error('❌ DB 오류:', err);
-    throw err;
+    console.error('💥 DB 실행 에러:', err);
   }
 }
 
-// ===== 유저 조회 =====
+export async function safeDBGet(query, ...params) {
+  try {
+    return await db.get(query, ...params);
+  } catch (err) {
+    console.error('💥 DB 조회 에러:', err);
+  }
+}
+
+export async function safeDBAll(query, ...params) {
+  try {
+    return await db.all(query, ...params);
+  } catch (err) {
+    console.error('💥 DB 전체 조회 에러:', err);
+  }
+}
+
 export async function getUser(id) {
-  const user = await db.get('SELECT * FROM users WHERE id = ?', [id]);
+  let user = await db.get('SELECT * FROM users WHERE id = ?', id);
   if (!user) {
-    await db.run('INSERT INTO users (id, balance) VALUES (?, ?)', [id, 1000]);
-    return { id, balance: 1000, last_claim: 0 };
+    await db.run('INSERT INTO users (id, balance) VALUES (?, ?)', id, 1000);
+    user = { id, balance: 1000, last_claim: 0 };
   }
   return user;
 }
 
-// ===== 잔고 업데이트 =====
-export async function updateBalance(id, amount, reason = '기타') {
-  const user = await getUser(id);
-  const newBalance = user.balance + amount;
-  await db.run('UPDATE users SET balance = ? WHERE id = ?', [newBalance, id]);
-  await db.run(
-    'INSERT INTO transactions (user_id, amount, reason, timestamp) VALUES (?, ?, ?, ?)',
-    [id, amount, reason, Date.now()]
-  );
-  return newBalance;
+export async function updateBalance(userId, amount, reason) {
+  await db.run('BEGIN TRANSACTION');
+  try {
+    const user = await getUser(userId);
+    const newBalance = Math.max(0, user.balance + amount);
+    await db.run('UPDATE users SET balance = ? WHERE id = ?', newBalance, userId);
+    await db.run(
+      'INSERT INTO transactions (user_id, amount, reason, timestamp) VALUES (?, ?, ?, ?)',
+      userId,
+      amount,
+      reason,
+      Date.now()
+    );
+    await db.run('COMMIT');
+    return newBalance;
+  } catch (err) {
+    await db.run('ROLLBACK');
+    console.error('💥 Balance update error:', err);
+    throw err;
+  }
 }
