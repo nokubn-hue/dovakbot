@@ -1,76 +1,47 @@
-// ===== 안정화 코드: 가장 상단 =====
+// index.js
 import dotenv from 'dotenv';
-import express from 'express';
-import fetch from 'node-fetch';
-import { Client, GatewayIntentBits, Partials } from 'discord.js';
-import { initDB } from './db.js';
-import { registerCommands } from './command.js';
-import { handleOtherCommands } from './commandsHandler.js';
-import { scheduleDailyLottery } from './lottery.js';
-
 dotenv.config();
 
-// 전역 예외 처리
-process.on('uncaughtException', (err) => console.error('💥 Uncaught Exception:', err));
-process.on('unhandledRejection', (reason) => console.error('💥 Unhandled Rejection:', reason));
+import express from 'express';
+import { Client, GatewayIntentBits, Partials } from 'discord.js';
+import { initDB } from './db.js';
+import { registerCommands } from './commands.js';
+import { handleCommand } from './commandsHandler.js';
+import { scheduleDailyLottery } from './lottery.js';
+import { DISCORD_TOKEN, PORT, KEEPALIVE_URL } from './config.js';
 
-// 환경 변수
-const TOKEN = process.env.DISCORD_TOKEN;
-const CLIENT_ID = process.env.CLIENT_ID;
-const ADMIN_IDS = process.env.ADMIN_USER_IDS?.split(',') || [];
-const PORT = process.env.PORT || 10000;
-const KEEPALIVE_URL = process.env.KEEPALIVE_URL;
-
-// ===== Express 서버 (Keep-alive) =====
-const app = express();
-app.get('/', (_, res) => res.send('봇 실행 중'));
-app.listen(PORT, () => console.log(`✅ 서버 실행: ${PORT}`));
-
-if (KEEPALIVE_URL) {
-  setInterval(async () => {
-    try {
-      await fetch(KEEPALIVE_URL);
-      console.log('🔁 Keep-alive ping');
-    } catch (err) {
-      console.warn('⚠️ Keep-alive 실패:', err.message);
-    }
-  }, 1000 * 60 * 4); // 4분마다 ping
-}
-
-// ===== Discord 클라이언트 =====
+// -------------------- Discord 클라이언트 초기화 --------------------
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
   ],
-  partials: [Partials.Message, Partials.Channel, Partials.GuildMember],
+  partials: [Partials.Message, Partials.Channel],
 });
 
-// ===== Discord 준비 이벤트 =====
+// -------------------- 웹 서버 (Render Keep-Alive용) --------------------
+const app = express();
+app.get('/', (_, res) => res.send('봇 실행 중'));
+app.listen(PORT, () => console.log(`✅ 서버 실행: ${PORT}`));
+
+// -------------------- Discord 이벤트 --------------------
 client.once('ready', async () => {
   console.log(`🤖 로그인 완료: ${client.user.tag}`);
   scheduleDailyLottery(client);
 });
 
-// ===== Interaction 처리 =====
+// -------------------- 명령어 처리 --------------------
 client.on('interactionCreate', async (interaction) => {
-  try {
-    await handleOtherCommands(interaction, client);
-  } catch (err) {
-    console.error('💥 Interaction 처리 에러:', err);
-    if (!interaction.replied) {
-      await interaction.reply({ content: '⚠️ 오류 발생', ephemeral: true });
-    }
-  }
+  await handleCommand(interaction, client);
 });
 
-// ===== DB 초기화 및 봇 로그인 =====
+// -------------------- DB 초기화 및 봇 로그인 --------------------
 (async () => {
   try {
-    await initDB();
-    await registerCommands();
-    await client.login(TOKEN);
+    await initDB();                 // DB 초기화
+    await registerCommands();       // 슬래시 명령어 등록
+    await client.login(DISCORD_TOKEN); // 실제 Render 환경에서는 실제 토큰 사용
     console.log('✅ DB 초기화 & 봇 로그인 완료');
   } catch (err) {
     console.error('💥 초기화 실패:', err);
@@ -78,8 +49,10 @@ client.on('interactionCreate', async (interaction) => {
   }
 })();
 
-
-if(!TOKEN) {
-  console.error('💥 DISCORD_TOKEN이 설정되지 않았습니다.');
-  process.exit(1);
+// -------------------- Keep-Alive (선택) --------------------
+// Render나 다른 호스팅 환경에서 주기적으로 호출하면 봇 서버가 잠들지 않음
+if (KEEPALIVE_URL) {
+  setInterval(() => {
+    fetch(KEEPALIVE_URL).catch(() => {});
+  }, 5 * 60 * 1000); // 5분마다 호출
 }
