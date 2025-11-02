@@ -8,12 +8,12 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // dovakbot 내부 모듈
-import { initDB, getUser, updateBalance, safeDBAll } from './dovakbot/db.js';
-import { runBlackjackManual, runBaccaratManual } from './dovakbot/casinoGames_manual.js';
-import { drawLotteryAndAnnounce, scheduleDailyLottery } from './dovakbot/lottery.js';
-import { handleOtherCommands } from './dovakbot/otherCommands.js';
-import { startRace } from './dovakbot/games.js';
-import { TOKEN } from './dovakbot/config.js';
+import { initDB, getUser, updateBalance, safeDBAll } from './db.js';
+import { runBlackjackManual, runBaccaratManual } from './casinoGames_manual.js';
+import { drawLotteryAndAnnounce, scheduleDailyLottery } from './lottery.js';
+import { handleOtherCommands } from './otherCommands.js';
+import { startRace } from './games.js';
+import { TOKEN } from './config.js';
 
 // ===== Express 서버 =====
 const app = express();
@@ -68,3 +68,4 @@ client.once('ready', () => console.log(`✅ Logged in as ${client.user.tag}`));
     process.exit(1);
   }
 })();
+
