@@ -1,5 +1,3 @@
-// index.js
-
 // ===== 안정화 코드: 가장 상단 =====
 process.on('uncaughtException', (err) => {
   console.error('💥 Uncaught Exception 발생:', err);
@@ -20,17 +18,22 @@ async function safeInterval(callback, intervalMs) {
 }
 
 // ===== 모듈 임포트 =====
-import { Client, GatewayIntentBits, Partials } from 'discord.js';
+import {
+  Client,
+  GatewayIntentBits,
+  Partials,
+  REST,
+  Routes,
+} from 'discord.js';
 import express from 'express';
 import dotenv from 'dotenv';
 dotenv.config();
 
-import { initDB, db, safeDBRun, getUser, updateBalance } from './db.js';
-import { drawLotteryAndAnnounce, scheduleDailyLottery } from './lottery.js';
-import { handleOtherCommands } from './commandsHandler.js';
-import { runBlackjackManual, runBaccaratManual } from './casinoGames_manual.js';
-import { baseCommands } from './commands.js';
-import { REST, Routes } from 'discord.js';
+import { initDB, safeDBRun, getUser, updateBalance, db } from './dovakbot/db.js';
+import { drawLotteryAndAnnounce, scheduleDailyLottery } from './dovakbot/lottery.js';
+import { handleOtherCommands } from './dovakbot/commandsHandler.js';
+import { runBlackjackManual, runBaccaratManual } from './dovakbot/casinoGames_manual.js';
+import { baseCommands } from './dovakbot/commands.js';
 
 // ----- 환경 변수 -----
 const TOKEN = process.env.DISCORD_TOKEN || process.env.TOKEN;
@@ -42,7 +45,7 @@ const KEEPALIVE_URL = process.env.KEEPALIVE_URL || 'https://dovakbot.onrender.co
 // ===== Express 서버 =====
 const app = express();
 app.get('/', (_, res) => res.send('봇 실행 중'));
-app.listen(PORT, () => console.log(`✅ 웹 서버 실행 완료 (포트 ${PORT})`));
+app.listen(PORT, () => console.log(`✅ 웹 서버 실행 완료: ${PORT}`));
 
 // Render keep-alive ping (4분 간격)
 if (KEEPALIVE_URL) {
@@ -50,7 +53,7 @@ if (KEEPALIVE_URL) {
     try {
       await fetch(KEEPALIVE_URL);
       console.log('🔁 Keep-alive ping');
-    } catch {}
+    } catch (e) {}
   }, 1000 * 60 * 4);
 }
 
@@ -60,16 +63,17 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers,
   ],
-  partials: [Partials.Message, Partials.Channel, Partials.GuildMember],
+  partials: [Partials.Message, Partials.Channel],
 });
 
-// ===== Discord 명령어 등록 =====
+// ===== 글로벌 명령어 등록 =====
 async function registerCommands() {
   const rest = new REST({ version: '10' }).setToken(TOKEN);
   try {
     await rest.put(Routes.applicationCommands(CLIENT_ID), {
-      body: baseCommands.map(c => c.toJSON()),
+      body: baseCommands.map((c) => c.toJSON()),
     });
     console.log('✅ 글로벌 명령어 등록 완료');
   } catch (err) {
@@ -77,26 +81,23 @@ async function registerCommands() {
   }
 }
 
-// ===== interactionCreate 이벤트 통합 =====
+// ===== interactionCreate 이벤트 =====
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
-
-  const { commandName, user } = interaction;
+  const { commandName, user, options } = interaction;
 
   try {
     const userData = await getUser(user.id);
 
-    switch (commandName) {
-      case '블랙잭':
-        await runBlackjackManual(interaction);
-        break;
-      case '바카라':
-        await runBaccaratManual(interaction);
-        break;
-      default:
-        // 그 외 명령어 (복권, 경마, 슬롯 등)
-        await handleOtherCommands(interaction, client, userData);
-        break;
+    // ----- 블랙잭/바카라 -----
+    if (commandName === '블랙잭') return await runBlackjackManual(interaction);
+    if (commandName === '바카라') return await runBaccaratManual(interaction);
+
+    // ----- 나머지 명령어 -----
+    if (
+      ['돈줘','잔고','골라','슬롯','복권구매','복권상태','복권결과','경마','관리자지급'].includes(commandName)
+    ) {
+      await handleOtherCommands(interaction, client, userData);
     }
   } catch (err) {
     console.error('💥 Interaction 처리 에러:', err);
@@ -109,12 +110,8 @@ client.on('interactionCreate', async (interaction) => {
 // ===== 봇 준비 완료 이벤트 =====
 client.once('ready', async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
-
-  // 자동 복권 스케줄 등록
-  scheduleDailyLottery(client, db, updateBalance);
-
-  // 명령어 등록
   await registerCommands();
+  scheduleDailyLottery(client, db, updateBalance);
 });
 
 // ===== DB 초기화 후 봇 로그인 =====
