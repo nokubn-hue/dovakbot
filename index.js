@@ -7,7 +7,6 @@ import { initDB, getUser, updateBalance, canClaimDaily, updateClaim } from './db
 import { registerCommands, baseCommands } from './command.js';
 import { scheduleDailyLottery } from './lottery.js';
 import { runBlackjackManual, runBaccaratManual } from './casinoGames_manual.js';
-import { startRace } from './commandsHandler.js';
 import { drawLotteryAndAnnounce } from './lottery.js';
 
 dotenv.config();
@@ -213,4 +212,5 @@ client.on('interactionCreate', async (interaction) => {
     console.error('💥 초기화 실패:', err);
   }
 })();
+
 
