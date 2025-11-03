@@ -1,6 +1,21 @@
-// handleOtherCommands.js
-import { safeDBRun, updateBalance, getUser } from './db.js';
+import { getUser, updateBalance, canClaimDaily, updateClaim } from './db.js';
+import { runBlackjackManual, runBaccaratManual } from './casinoGames_manual.js';
+import { startRace } from './race.js';
 import { drawLotteryAndAnnounce } from './lottery.js';
+
+export async function handleOtherCommands(interaction, client) {
+  if (!interaction.isChatInputCommand()) return;
+
+  const { commandName, user } = interaction;
+  const userData = await getUser(user.id);
+
+  // 🧩 유저 데이터 유효성 검사
+  if (!userData || typeof userData.balance !== 'number') {
+    console.error(`⚠️ 유저 데이터 오류: ${user.id}`);
+    await interaction.reply({ content: '⚠️ 유저 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.', flags: 64 });
+    return;
+  }
+
 
 // ===== 경마 관련 상수 =====
 export const RACE_PAYOUT_MULTIPLIER = 5;
@@ -82,18 +97,60 @@ export async function handleOtherCommands(interaction, client, userData) {
     return interaction.reply(`💸 기본금 1000원 지급. 현재 잔고: ${newBal}원`);
   }
 
-  // ----- 잔고 -----
-  if (commandName === '잔고') {
-    const nickname = interaction.member?.displayName || user.username;
-    return interaction.reply(`💰 ${nickname}님의 잔고: ${userData.balance}원`);
-  }
+  switch (commandName) {
+    case '잔고': {
+      await interaction.reply({
+        content: `💰 ${user.globalName || user.username}님의 잔고: ${userData.balance.toLocaleString()}원`,
+        flags: 64,
+      });
+      break;
+    }
 
-  // ----- 골라 -----
-  if (commandName === '골라') {
-    const opts = options.getString('옵션들').split(',').map(x => x.trim()).filter(Boolean);
-    if (opts.length < 2) return interaction.reply('⚠️ 2개 이상 입력해주세요.');
-    const choice = opts[Math.floor(Math.random() * opts.length)];
-    return interaction.reply(`🎯 선택된 항목: **${choice}**`);
+    case '돈줘': {
+      if (!(await canClaimDaily(user.id))) {
+        await interaction.reply({ content: '⏰ 이미 오늘의 기본금을 받았습니다. 내일 다시 시도해주세요.', flags: 64 });
+        return;
+      }
+
+      const reward = 1000;
+      const newBalance = await updateBalance(user.id, reward, '일일 기본금');
+      await updateClaim(user.id);
+
+      await interaction.reply({
+        content: `💸 오늘의 기본금 ${reward.toLocaleString()}원을 받았습니다!\n현재 잔고: ${newBalance.toLocaleString()}원`,
+        flags: 64,
+      });
+      break;
+    }
+
+    case '복권구매': {
+      await interaction.deferReply({ flags: 64 });
+      await drawLotteryAndAnnounce(client, interaction);
+      break;
+    }
+
+    case '블랙잭': {
+      const bet = interaction.options.getInteger('베팅');
+      await runBlackjackManual(interaction, userData, bet);
+      break;
+    }
+
+    case '바카라': {
+      const bet = interaction.options.getInteger('베팅');
+      const choice = interaction.options.getString('선택');
+      await runBaccaratManual(interaction, userData, bet, choice);
+      break;
+    }
+
+    case '경마': {
+      const bet = interaction.options.getInteger('베팅');
+      const horseNum = interaction.options.getInteger('말번호');
+      await startRace(interaction, userData, bet, horseNum);
+      break;
+    }
+
+    default:
+      await interaction.reply({ content: '❓ 알 수 없는 명령어입니다.', flags: 64 });
   }
 
   // ----- 슬롯 -----
@@ -131,3 +188,4 @@ export async function handleOtherCommands(interaction, client, userData) {
   }
 
 }
+
