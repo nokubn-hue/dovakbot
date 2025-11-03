@@ -18,10 +18,22 @@ export async function initDB() {
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       balance INTEGER DEFAULT 1000,
-      last_claim INTEGER DEFAULT 0,
-      last_lottery INTEGER DEFAULT 0
+      last_claim INTEGER DEFAULT 0
     );
   `);
+
+  // last_lottery 컬럼 자동 추가 (없는 경우)
+  try {
+    const row = await db.get("PRAGMA table_info(users)");
+    const columns = await db.all("PRAGMA table_info(users)");
+    const hasLastLottery = columns.some(c => c.name === 'last_lottery');
+    if (!hasLastLottery) {
+      await db.exec('ALTER TABLE users ADD COLUMN last_lottery INTEGER DEFAULT 0;');
+      console.log('✅ users 테이블에 last_lottery 컬럼 추가 완료');
+    }
+  } catch (err) {
+    console.error('⚠️ last_lottery 컬럼 체크 실패:', err);
+  }
 
   // ===== transactions 테이블 =====
   await db.exec(`
@@ -86,21 +98,17 @@ export async function safeDBAll(query, ...params) {
 export async function getUser(id) {
   let user = await db.get('SELECT * FROM users WHERE id = ?', id);
   if (!user) {
-    await db.run(
-      'INSERT INTO users (id, balance, last_claim, last_lottery) VALUES (?, ?, ?, ?)',
-      id,
-      1000,
-      0,
-      0
-    );
+    await db.run('INSERT INTO users (id, balance, last_claim, last_lottery) VALUES (?, ?, ?, ?)', id, 1000, 0, 0);
     user = { id, balance: 1000, last_claim: 0, last_lottery: 0 };
+  } else if (user.last_lottery === undefined) {
+    // last_lottery가 없는 경우 초기값 0
+    user.last_lottery = 0;
   }
   return user;
 }
 
 /**
  * 잔고 업데이트
- * 트랜잭션 처리로 안전하게 업데이트
  */
 export async function updateBalance(userId, amount, reason) {
   await db.run('BEGIN TRANSACTION');
@@ -129,24 +137,10 @@ export async function updateBalance(userId, amount, reason) {
 
 /**
  * 하루 1회 기본금/무료복권 체크용 함수
- * last_claim, last_lottery 필드를 UTC 기준으로 체크
  */
 export async function canClaimDaily(userId) {
   const user = await getUser(userId);
   const last = user.last_claim || 0;
-  const today = new Date();
-  const lastDate = new Date(last);
-
-  return !(
-    lastDate.getUTCFullYear() === today.getUTCFullYear() &&
-    lastDate.getUTCMonth() === today.getUTCMonth() &&
-    lastDate.getUTCDate() === today.getUTCDate()
-  );
-}
-
-export async function canClaimLottery(userId) {
-  const user = await getUser(userId);
-  const last = user.last_lottery || 0;
   const today = new Date();
   const lastDate = new Date(last);
 
@@ -165,7 +159,26 @@ export async function updateClaim(userId) {
   await db.run('UPDATE users SET last_claim = ? WHERE id = ?', now, userId);
 }
 
-export async function updateLotteryClaim(userId) {
+/**
+ * 하루 1회 복권 구매 기록 갱신
+ */
+export async function updateLastLottery(userId) {
   const now = Date.now();
   await db.run('UPDATE users SET last_lottery = ? WHERE id = ?', now, userId);
+}
+
+/**
+ * 사용자가 오늘 복권 구매 가능한지 체크
+ */
+export async function canBuyLottery(userId) {
+  const user = await getUser(userId);
+  const last = user.last_lottery || 0;
+  const today = new Date();
+  const lastDate = new Date(last);
+
+  return !(
+    lastDate.getUTCFullYear() === today.getUTCFullYear() &&
+    lastDate.getUTCMonth() === today.getUTCMonth() &&
+    lastDate.getUTCDate() === today.getUTCDate()
+  );
 }
