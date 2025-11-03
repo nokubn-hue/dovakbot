@@ -1,9 +1,10 @@
-// ===== imports =====
-import { getUser, updateBalance, canClaimDaily, updateClaim } from './db.js';
+// commandsHandler.js
+import { getUser, updateBalance, canClaimDaily, updateClaim, safeDBRun } from './db.js';
 import { runBlackjackManual, runBaccaratManual } from './casinoGames_manual.js';
+import { startRace } from './race.js';
 import { drawLotteryAndAnnounce } from './lottery.js';
 
-// ===== 경마 관련 상수 =====
+// ===== 경마 상수 =====
 export const RACE_PAYOUT_MULTIPLIER = 5;
 export const horses = [
   { name: '실버 쉽', emoji: '🐎' },
@@ -14,11 +15,10 @@ export const horses = [
   { name: '로쿠도 캡', emoji: '🐎' },
   { name: '럭키 카구야', emoji: '🐎' },
 ];
-
 export const activeRaces = new Map();
 
 // -------------------
-// 🐎 경마 게임 함수
+// 경마 게임 함수
 // -------------------
 export async function startRace(channel, bettors) {
   let positions = new Array(horses.length).fill(0);
@@ -68,23 +68,34 @@ export async function startRace(channel, bettors) {
 }
 
 // -------------------
-// 🧩 명령어 처리
+// Interaction 명령어 처리
 // -------------------
 export async function handleOtherCommands(interaction, client) {
   if (!interaction.isChatInputCommand()) return;
 
   const { commandName, user, options } = interaction;
-  const userData = await getUser(user.id);
 
-  // ===== 유저 데이터 유효성 검사 =====
-  if (!userData || typeof userData.balance !== 'number') {
-    console.error(`⚠️ 유저 데이터 오류: ${user.id}`);
+  // 유저 데이터 로드
+  const userData = await getUser(user.id);
+  if (!userData) {
+    console.error(`⚠️ 유저 데이터를 불러오지 못했습니다: ${user.id}`);
     await interaction.reply({ content: '⚠️ 유저 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.', flags: 64 });
     return;
   }
 
   switch (commandName) {
-    // ----- 잔고 -----
+    case '돈줘': {
+      if (!(await canClaimDaily(user.id))) {
+        await interaction.reply({ content: '⏰ 이미 오늘의 기본금을 받으셨습니다. 내일 다시 시도해주세요.', flags: 64 });
+        return;
+      }
+      const reward = 1000;
+      const newBalance = await updateBalance(user.id, reward, '일일 기본금');
+      await updateClaim(user.id);
+      await interaction.reply({ content: `💸 오늘의 기본금 ${reward.toLocaleString()}원을 받으셨습니다!\n현재 잔고: ${newBalance.toLocaleString()}원`, flags: 64 });
+      break;
+    }
+
     case '잔고': {
       await interaction.reply({
         content: `💰 ${user.globalName || user.username}님의 잔고: ${userData.balance.toLocaleString()}원`,
@@ -93,39 +104,18 @@ export async function handleOtherCommands(interaction, client) {
       break;
     }
 
-    // ----- 돈줘 -----
-    case '돈줘': {
-      if (!(await canClaimDaily(user.id))) {
-        await interaction.reply({ content: '⏰ 이미 오늘의 기본금을 받았습니다. 내일 다시 시도해주세요.', flags: 64 });
-        return;
-      }
-
-      const reward = 1000;
-      const newBalance = await updateBalance(user.id, reward, '일일 기본금');
-      await updateClaim(user.id);
-
-      await interaction.reply({
-        content: `💸 오늘의 기본금 ${reward.toLocaleString()}원을 받았습니다!\n현재 잔고: ${newBalance.toLocaleString()}원`,
-        flags: 64,
-      });
-      break;
-    }
-
-    // ----- 복권 -----
     case '복권구매': {
       await interaction.deferReply({ flags: 64 });
       await drawLotteryAndAnnounce(client, interaction);
       break;
     }
 
-    // ----- 블랙잭 -----
     case '블랙잭': {
       const bet = options.getInteger('베팅');
       await runBlackjackManual(interaction, userData, bet);
       break;
     }
 
-    // ----- 바카라 -----
     case '바카라': {
       const bet = options.getInteger('베팅');
       const choice = options.getString('선택');
@@ -133,26 +123,27 @@ export async function handleOtherCommands(interaction, client) {
       break;
     }
 
-    // ----- 경마 -----
     case '경마': {
       const bet = options.getInteger('베팅');
       const horseNum = options.getInteger('말번호');
-      const bettors = new Map([[user.id, { bet, horseIndex: horseNum - 1 }]]);
+      const bettors = new Map();
+      bettors.set(user.id, { bet, horseIndex: horseNum - 1 });
       await startRace(interaction.channel, bettors);
       break;
     }
 
-    // ----- 슬롯 -----
     case '슬롯': {
       const bet = options.getInteger('베팅') ?? 100;
-      if (bet <= 0 || bet > userData.balance) return interaction.reply('❌ 베팅 금액 오류.');
-
+      if (bet <= 0 || bet > userData.balance) {
+        await interaction.reply('❌ 베팅 금액 오류입니다.');
+        return;
+      }
       await updateBalance(user.id, -bet, '슬롯 베팅');
+
       const result = spinSlot();
-
       let reward = 0, patternText = '', sevenText = '', penaltyText = '';
-      const cherryCount = result.filter(s => s === '🍒').length;
 
+      const cherryCount = result.filter(s => s === '🍒').length;
       if (cherryCount === 2) { reward -= 500; penaltyText = '💥 체리 2개! 500코인 차감!'; }
       else if (cherryCount === 3) { reward -= 2000; penaltyText = '💀 체리 3개! 2000코인 차감!'; }
 
@@ -172,23 +163,20 @@ export async function handleOtherCommands(interaction, client) {
 
       await interaction.reply(
         `🎰 슬롯 결과: ${result.join(' | ')}\n` +
-        `${patternText}\n${sevenText ? sevenText + '\n' : ''}${penaltyText ? penaltyText + '\n' : ''}` +
+        `${patternText}\n${sevenText ? sevenText+'\n':''}${penaltyText ? penaltyText+'\n':''}` +
         `💰 최종 잔고: ${balance}원\n` +
         `${reward > 0 ? `🎉 보상: +${reward}` : reward < 0 ? `💸 손실: ${reward}` : ''}`
       );
       break;
     }
 
-    // ----- 기타 -----
     default:
       await interaction.reply({ content: '❓ 알 수 없는 명령어입니다.', flags: 64 });
   }
 }
 
-// -------------------
-// 🎰 슬롯 헬퍼 함수
-// -------------------
+// 슬롯 함수 예시 (기존 로직 그대로)
 function spinSlot() {
-  const symbols = ['🍒', '🍋', '🍇', '7️⃣', '⭐', '🍉'];
+  const symbols = ['🍒', '🍋', '🔔', '7️⃣'];
   return Array.from({ length: 3 }, () => symbols[Math.floor(Math.random() * symbols.length)]);
 }
