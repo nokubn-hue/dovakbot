@@ -58,7 +58,7 @@ export async function safeDBAll(query, ...params) {
   catch (err) { console.error('💥 DB 전체 조회 에러:', err); }
 }
 
-// 유저 정보 가져오기 (자동 생성)
+// 사용자 정보 가져오기
 export async function getUser(id) {
   let user = await db.get('SELECT * FROM users WHERE id = ?', id);
   if (!user) {
@@ -68,6 +68,7 @@ export async function getUser(id) {
   return user;
 }
 
+// 잔고 업데이트
 export async function updateBalance(userId, amount, reason) {
   await db.run('BEGIN TRANSACTION');
   try {
@@ -75,7 +76,9 @@ export async function updateBalance(userId, amount, reason) {
     const newBalance = Math.max(0, user.balance + amount);
 
     await db.run('UPDATE users SET balance = ? WHERE id = ?', newBalance, userId);
-    await db.run('INSERT INTO transactions (user_id, amount, reason, timestamp) VALUES (?, ?, ?, ?)', userId, amount, reason, Date.now());
+    await db.run('INSERT INTO transactions (user_id, amount, reason, timestamp) VALUES (?, ?, ?, ?)',
+      userId, amount, reason, Date.now()
+    );
 
     await db.run('COMMIT');
     return newBalance;
@@ -86,6 +89,7 @@ export async function updateBalance(userId, amount, reason) {
   }
 }
 
+// 하루 1회 기본금 체크
 export async function canClaimDaily(userId) {
   const user = await getUser(userId);
   const last = user.last_claim || 0;
@@ -101,6 +105,7 @@ export async function updateClaim(userId) {
   await db.run('UPDATE users SET last_claim = ? WHERE id = ?', now, userId);
 }
 
+// 복권 관련
 export async function canBuyLottery(userId) {
   const user = await getUser(userId);
   const last = user.last_lottery || 0;
@@ -115,3 +120,5 @@ export async function updateLastLottery(userId) {
   const now = Date.now();
   await db.run('UPDATE users SET last_lottery = ? WHERE id = ?', now, userId);
 }
+
+export { db };
