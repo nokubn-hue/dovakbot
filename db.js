@@ -9,7 +9,7 @@ let db;
  */
 export async function initDB() {
   db = await open({
-    filename: './casino.db', // DB 파일 경로
+    filename: './casino.db',
     driver: sqlite3.Database,
   });
 
@@ -24,7 +24,6 @@ export async function initDB() {
 
   // last_lottery 컬럼 자동 추가 (없는 경우)
   try {
-    const row = await db.get("PRAGMA table_info(users)");
     const columns = await db.all("PRAGMA table_info(users)");
     const hasLastLottery = columns.some(c => c.name === 'last_lottery');
     if (!hasLastLottery) {
@@ -98,10 +97,15 @@ export async function safeDBAll(query, ...params) {
 export async function getUser(id) {
   let user = await db.get('SELECT * FROM users WHERE id = ?', id);
   if (!user) {
-    await db.run('INSERT INTO users (id, balance, last_claim, last_lottery) VALUES (?, ?, ?, ?)', id, 1000, 0, 0);
+    await db.run(
+      'INSERT INTO users (id, balance, last_claim, last_lottery) VALUES (?, ?, ?, ?)',
+      id,
+      1000,
+      0,
+      0
+    );
     user = { id, balance: 1000, last_claim: 0, last_lottery: 0 };
   } else if (user.last_lottery === undefined) {
-    // last_lottery가 없는 경우 초기값 0
     user.last_lottery = 0;
   }
   return user;
